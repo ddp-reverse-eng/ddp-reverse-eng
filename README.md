@@ -51,7 +51,7 @@ Checks report errors (the fileset breaks the format), warnings (valid but risky)
 ddp-play [--driver NAME] [--buffer MS] DIR
 ```
 
-A console player (package `ddp-player`, through libao): the track list with CD-Text and lengths, the current position in the track and on the disc, and a progress bar. It starts at track 1 INDEX 01 like a CD player, and shows a pregap as a countdown. `--buffer` sets the device buffer (default 500 ms) for the pulse, alsa and oss drivers; raise it if playback glitches.
+A console player (package `ddp-player`, through libao): the track list with CD-Text and lengths, the current position in the track and on the disc, and a progress bar for the track. It starts at track 1 INDEX 01 like a CD player, and shows a pregap as a countdown. `--buffer` sets the device buffer (default 500 ms) for the pulse, alsa and oss drivers; raise it if playback glitches.
 
 | Key | Action |
 |-----|--------|
@@ -60,6 +60,7 @@ A console player (package `ddp-player`, through libao): the track list with CD-T
 | ↑ or `p` | back to the start of the track, or the previous one in its first 3 s |
 | → / ← or `f` / `b` | forward / back 10 s |
 | `1`-`9` | jump to a track |
+| `+` / `-` | volume, 1 dB steps from 0 dB down to -40 dB; 0 dB plays the master untouched |
 | `q` | quit |
 
 ## Testing

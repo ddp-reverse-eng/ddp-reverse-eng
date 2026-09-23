@@ -39,6 +39,7 @@ bbbq|stopped at track 01, -00:02 into it, disc 00:00
 \033[B\033[B\033[Aq|stopped at track 02, 00:00 into it, disc 00:11
 \033[C\033[Cq|stopped at track 03, 00:00 into it, disc 00:22
 3\033[Dq|stopped at track 02, 00:01 into it, disc 00:12
+---+nq|stopped at track 02, 00:00 into it, disc 00:11
 CASES
 echo "checked $checked player scripts, $failed failures"
 [ "$failed" -eq 0 ] && [ "$checked" -gt 0 ]

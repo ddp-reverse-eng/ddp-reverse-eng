@@ -4,7 +4,12 @@ let usage = "ddp-play [--driver NAME] [--buffer MS] DIRECTORY"
 let chunk_sectors = 16
 let fps = Ddp.Cd.frames_per_second
 
-type state = { position : int; paused : bool; quit : bool }
+type state = {
+  position : int;
+  paused : bool;
+  quit : bool;
+  gain_db : int;  (** 0 or below: the player only attenuates *)
+}
 
 type command =
   | Toggle
@@ -12,6 +17,7 @@ type command =
   | Previous
   | Seek of int  (** frames *)
   | Goto of int  (** track number *)
+  | Volume of int  (** dB *)
   | Quit
 
 type disc = { tracks : Reader.track array; total : int }
@@ -39,6 +45,7 @@ let clamp disc position = max 0 (min (disc.total - 1) position)
 
 let apply disc state = function
   | Toggle -> { state with paused = not state.paused }
+  | Volume db -> { state with gain_db = max (-40) (min 0 (state.gain_db + db)) }
   | Quit -> { state with quit = true }
   | Seek frames ->
       { state with position = clamp disc (state.position + frames) }
@@ -71,6 +78,8 @@ let rec parse = function
   | ('p' | ',') :: rest -> Previous :: parse rest
   | 'f' :: rest -> Seek (10 * fps) :: parse rest
   | 'b' :: rest -> Seek (-10 * fps) :: parse rest
+  | ('+' | '=') :: rest -> Volume 1 :: parse rest
+  | '-' :: rest -> Volume (-1) :: parse rest
   | 'q' :: rest -> Quit :: parse rest
   | ('1' .. '9' as c) :: rest ->
       Goto (Char.code c - Char.code '0') :: parse rest
@@ -155,17 +164,17 @@ let render screen disc state =
   line (String.make 72 '-');
   let into = state.position - Reader.track_start track in
   let width = 40 in
-  let filled = state.position * width / max 1 disc.total in
+  let filled = max 0 (into * width / max 1 (track_length disc i)) in
   line
-    (Printf.sprintf "%s  track %02d  %s / %s   disc %s / %s"
+    (Printf.sprintf "%s  track %02d  %s / %s   disc %s / %s   vol %d dB"
        (if state.paused then "||" else "> ")
        track.number (clock into)
        (clock (track_length disc i))
-       (clock state.position) (clock disc.total));
+       (clock state.position) (clock disc.total) state.gain_db);
   line ("[" ^ String.make filled '#' ^ String.make (width - filled) '.' ^ "]");
   line
-    "space play/pause   up/down: tracks   left/right: 10 s   1-9: track   q: \
-     quit";
+    "space play/pause   up/down: tracks   left/right: 10 s   +/-: volume   \
+     1-9: track   q: quit";
   print_string ("\027[H" ^ Buffer.contents buffer ^ "\027[J");
   flush stdout
 
@@ -208,6 +217,13 @@ let update shared commands =
       if (before.paused && not shared.state.paused) || shared.state.quit then
         Condition.broadcast shared.resumed)
 
+let attenuate buffer length gain_db =
+  let factor = 10. ** (float gain_db /. 20.) in
+  for i = 0 to (length / 2) - 1 do
+    let v = float (Bytes.get_int16_le buffer (2 * i)) *. factor in
+    Bytes.set_int16_le buffer (2 * i) (Float.to_int (Float.round v))
+  done
+
 (** Reads and plays chunk after chunk, so the device is never starved by the UI.
 *)
 let feed disc audio device shared =
@@ -224,12 +240,13 @@ let feed disc audio device shared =
             let count = min chunk_sectors (disc.total - s.position) in
             let position = s.position + count in
             shared.state <- { s with position; quit = position >= disc.total };
-            Some (s.position, count))
+            Some (s.position, count, s.gain_db))
     in
     match next with
     | None -> ()
-    | Some (sector, count) ->
+    | Some (sector, count, gain_db) ->
         let read = Reader.read_sectors audio ~sector buffer ~count in
+        if gain_db < 0 then attenuate buffer (read * Ddp.Cd.sector_size) gain_db;
         Ao.play device (Bytes.sub_string buffer 0 (read * Ddp.Cd.sector_size));
         loop ()
   in
@@ -249,6 +266,7 @@ let play reader ~device =
           position = Reader.track_start tracks.(0);
           paused = false;
           quit = false;
+          gain_db = 0;
         };
       lock = Mutex.create ();
       resumed = Condition.create ();
