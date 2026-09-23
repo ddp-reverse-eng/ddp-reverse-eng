@@ -12,19 +12,29 @@ import array, sys, wave
 out, length = sys.argv[1], sys.argv[2].split("+")
 silence = sys.argv[3:] == ["silence"]
 n = int(length[0]) * 588 + (int(length[1]) if len(length) > 1 else 0)
-if silence:
-    pcm = bytes(n * 4)
-else:
-    # One little-endian 32-bit word per stereo sample puts i & 0xffff in L and i >> 16 in R.
-    pcm = array.array("I", range(n)).tobytes()
+
+def blocks(size=1 << 20):
+    for start in range(0, n, size):
+        count = min(size, n - start)
+        if silence:
+            yield bytes(count * 4)
+        else:
+            # One little-endian 32-bit word per stereo sample puts i & 0xffff in L and i >> 16 in R.
+            block = array.array("I", range(start, start + count))
+            if out.endswith(".mot"):
+                block = array.array("H", block.tobytes())
+                block.byteswap()
+            yield block.tobytes()
+
+
 if out.endswith(".wav"):
     with wave.open(out, "wb") as w:
         w.setnchannels(2)
         w.setsampwidth(2)
         w.setframerate(44100)
-        w.writeframes(pcm)
+        for block in blocks():
+            w.writeframes(block)
 else:
-    samples = array.array("H", pcm)
-    if out.endswith(".mot"):
-        samples.byteswap()
-    open(out, "wb").write(samples.tobytes())
+    with open(out, "wb") as f:
+        for block in blocks():
+            f.write(block)

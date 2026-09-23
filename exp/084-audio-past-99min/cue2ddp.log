@@ -1,0 +1,40 @@
+Warning: frames2msf(): minutes out of range (100)
+Warning: frames2msf(): minutes out of range (100)
+Warning: frames2msf(): minutes out of range (100)
+Parsing cue sheet 'input.cue'...
+done.
+=== CUE IMAGE SUMMARY ===
+Cue file : input.cue
+*** Audio data ***
+File name: audio.wav
+File type: Microsoft Wave
+Starts at: 00:00:02.000
+Ends at  : 01:40:02.000
+Length   : 01:40:00.000
+*** PQ Listing ***
+UPC/EAN: 
+Trk Idx  Start Time         Track Length       ISRC          PRE DCP 4CH SCMS
+--- ---  -----------------  -----------------  ------------  --- --- --- ----
+ 01  00  00:00:00 (     0)
+ 01  01  00:02:00 (   150)  89:00:00 (400500)                 N   N   N   N
+ 02  01  89:02:00 (400650)  11:00:00 ( 49500)                 N   N   N   N
+--- ---  -----------------  -----------------  ------------  --- --- --- ----
+End      99:02:00 (450150)
+Writing DDP fileset...
+Copying audio data
+  from: audio.wav
+  to:   out/IMAGE.DAT
+  450150 sectors written (1058752800 bytes).
+Writing SD file... 384 bytes written.
+Writing DDPMS file... 256 bytes written.
+Writing DDPID file... 128 bytes written.
+Calculating checksums...
+MD5 checksums written to "CHECKSUM.MD5".
+CRC32 checksums written to "CHECKSUM.TXT".
+Filename           MD5                               CRC32   
+-----------------  --------------------------------  --------
+DDPID              187970110683c92c25bdb82256354780  730DC92D
+DDPMS              d4522e8ca190bea88b13f03b28a5c562  D8739209
+SD                 aef451aaceab2b7aaa6844366e6ad2e2  0EDC840E
+IMAGE.DAT          16b7d4977c39de2fb915ce5149de1b2e  C992F043
+...done.

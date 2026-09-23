@@ -1,5 +1,6 @@
 let frames_per_second = 75
 let sector_size = 2352
+let max_frames = (((99 * 60) + 59) * frames_per_second) + 74
 
 let of_msf ~minutes ~seconds ~frames =
   if

@@ -4,6 +4,8 @@
 # output, or a rejection where cue2ddp rejected the input (REJECTED).
 # EXPECT names another experiment whose output ours must match instead: our
 # writer accepts some inputs cue2ddp refuses, e.g. losslessly converted WAV.
+# ACCEPT: ours accepts what cue2ddp refuses, with no reference to compare.
+# REFUSE: ours refuses what cue2ddp accepts, because cue2ddp's output is broken.
 # IMAGE.DAT is not committed; the committed CHECKSUM.MD5 still pins it.
 # CUE2DDP names a prebuilt executable (dune test sets it); otherwise it is built here.
 root=$(cd "$(dirname "$0")/.." && pwd)
@@ -33,12 +35,14 @@ for dir in "$@"; do
   set -- $(cat "$dir/run.args")
   shift
   [ -f "$dir/audio.wav" ] || "$root/bin/exp" --inputs "$dir"
-  ours=$(mktemp -d)
+  ours=$(mktemp -d "$root/.run.XXXXXX")
   if (cd "$dir" && "$tool" "$@" input.cue "$ours" > "$ours.log" 2>&1); then
     if [ -f "$dir/EXPECT" ]; then same_as "$root/exp/$(cat "$dir/EXPECT")/out"
+    elif [ -f "$dir/ACCEPT" ]; then files=$((files + 1))
+    elif [ -f "$dir/REFUSE" ]; then fail "accepted, should refuse: $(cat "$dir/REFUSE")"
     elif [ -f "$dir/REJECTED" ]; then fail "accepted, cue2ddp rejects: $(cat "$dir/REJECTED")"
     else same_as "$dir/out"; fi
-  elif [ -f "$dir/REJECTED" ] && [ ! -f "$dir/EXPECT" ]; then
+  elif [ -f "$dir/REFUSE" ] || { [ -f "$dir/REJECTED" ] && [ ! -f "$dir/EXPECT" ] && [ ! -f "$dir/ACCEPT" ]; }; then
     rejects=$((rejects + 1))
   else
     fail "$(cat "$ours.log")"

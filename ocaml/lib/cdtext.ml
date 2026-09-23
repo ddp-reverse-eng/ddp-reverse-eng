@@ -96,6 +96,9 @@ let encode ~(disc : Cue.text) ~(tracks : Cue.track list) =
   else
     let counts = List.map (fun (kind, p) -> (kind, List.length p)) groups in
     let text_packs = List.fold_left (fun n (_, c) -> n + c) 0 counts in
+    (* Sequence numbers are one byte, so a block holds at most 256 packs. *)
+    if text_packs + 3 > 256 then
+      Diag.error "CD-Text needs %d packs, at most 256 fit" (text_packs + 3);
     let size_packs =
       size_info ~first_track:1 ~last_track:(List.length tracks)
         ~counts:(counts @ [ (0x8f, 3) ])
@@ -112,9 +115,19 @@ let encode ~(disc : Cue.text) ~(tracks : Cue.track list) =
            pack ~kind ~track ~sequence ~char_position payload)
          all)
 
-let of_file path =
+let of_file ~warn path =
   let data = In_channel.with_open_bin path In_channel.input_all in
   if data = "" || String.length data mod pack_size <> 0 then
     Diag.error "%s: CD-Text file size must be a multiple of %d bytes" path
       pack_size;
+  let bad_crc =
+    List.init (String.length data / pack_size) Fun.id
+    |> List.filter (fun i ->
+           let pack = Bytes.of_string (String.sub data (i * pack_size) pack_size) in
+           crc16 (Bytes.sub pack 0 16) <> Bytes.get_uint16_be pack 16)
+  in
+  if bad_crc <> [] then
+    warn
+      (Printf.sprintf "%s: %d CD-Text pack(s) with a wrong CRC, first is pack %d"
+         path (List.length bad_crc) (List.hd bad_crc));
   data

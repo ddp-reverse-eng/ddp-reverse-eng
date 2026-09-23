@@ -64,7 +64,7 @@ let check_ean ~warn code =
   if (10 - (sum mod 10)) mod 10 <> digit 12 then
     warn ("UPC/EAN check digit is wrong: " ^ code)
 
-let validate_track ~next_start ((t : Cue.track), indexes) =
+let validate_track ~end_of_disc ~next_start ((t : Cue.track), indexes) =
   if t.flags.dcp && t.flags.scms then
     error "track %02d: DCP and SCMS are mutually exclusive" t.number;
   Option.iter
@@ -84,6 +84,11 @@ let validate_track ~next_start ((t : Cue.track), indexes) =
   in
   if not (ascending indexes) then
     error "track %02d: indexes must be consecutive and increasing" t.number;
+  List.iter
+    (fun (i, time) ->
+      if time >= end_of_disc then
+        error "track %02d: INDEX %02d is past the end of the audio" t.number i)
+    indexes;
   let start = List.assoc 1 indexes in
   if next_start - start < 4 * frames_per_second then
     error "track %02d is shorter than 4 seconds" t.number;
@@ -107,6 +112,9 @@ let layout ~warn (cue : Cue.t) (audio : Audio.t) =
   let sectors =
     pregap + ((Audio.output_length audio + sector_size - 1) / sector_size)
   in
+  if sectors > Cd.max_frames + 1 then
+    error "disc is %s long, longer than the 99:59:74 CD addresses can reach"
+      (Cd.format_msf ~separator:":" sectors);
   let tracks = absolute_indexes ~pregap cue.tracks in
   (* A track's minimum length runs from its INDEX 01 to the next track's INDEX 01. *)
   let starts =
@@ -114,7 +122,7 @@ let layout ~warn (cue : Cue.t) (audio : Audio.t) =
     @ [ sectors ]
   in
   List.iter2
-    (fun track next_start -> validate_track ~next_start track)
+    (fun track next_start -> validate_track ~end_of_disc:sectors ~next_start track)
     tracks starts;
   let upc = Option.value cue.catalog ~default:"" in
   let entry ?(control = "01") ?(isrc = "") ?(upc = "") track index time =
@@ -288,7 +296,7 @@ let write ?(warn = fun msg -> prerr_endline ("warning: " ^ msg))
     if not with_cdtext then ""
     else
       match cue.cdtext_file with
-      | Some file -> Cdtext.of_file (relative file)
+      | Some file -> Cdtext.of_file ~warn (relative file)
       | None -> Cdtext.encode ~disc:cue.text ~tracks:cue.tracks
   in
   let path name = Filename.concat dir name in

@@ -1,0 +1,1 @@
+cue2ddp limits cue lines to 254 characters; our parser has no line limit

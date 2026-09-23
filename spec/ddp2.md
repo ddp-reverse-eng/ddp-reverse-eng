@@ -104,11 +104,21 @@ Raw 16-bit little-endian stereo PCM, the wav data copied as-is [001]. BINARY inp
 - Commands must be uppercase: lowercase commands are ignored, leaving no TRACK [061]. Lowercase flags are dropped with a warning, so the master loses them [069]. Unknown commands such as COMPOSER are ignored with a warning [070].
 - Refused: a UTF-8 BOM [065], an ISRC with dashes [072], PREGAP and POSTGAP [074][075], CATALOG inside a track [076].
 
+## Limits (cue2ddp)
+
+- Discs over 80 minutes are accepted [078]. Cue times with 90 or more minutes are refused as malformed [079]; an index at or past the end of the audio is refused [083].
+- Audio longer than 99:59:74 is accepted, but the lead-out minutes are clamped to 99 (a wrong address) with only a warning [084].
+- Cue lines are limited to 254 characters [080].
+- CD-Text past 256 packs is written with the one-byte sequence number and pack counts wrapped, which is invalid CD-Text [081].
+- A CDTEXTFILE with wrong pack CRCs is copied as-is, without a warning [082].
+
 ## Writer extensions (OCaml writer only)
 
 Where cue2ddp refuses an input that converts to 16-bit stereo without changing any sample, the OCaml writer converts it and must produce the same fileset as the equivalent 16-bit stereo input (`EXPECT` in the experiment):
 extensible headers [044], mono duplicated to both channels with a warning [048]→[057], 8-bit [053]→[058], 24/32-bit integer and 32/64-bit float whose samples are all exactly 16-bit [049][051]. A single inexact sample refuses the whole file [050]. Sample rates other than 44.1 kHz, more than two channels and compressed formats are refused [052].
 Cue sheets: commands, file types, track modes and flags are case-insensitive [061]→[001], [069]→[077]; a UTF-8 BOM is skipped [065]→[001]. Unknown commands warn and are ignored, as in cue2ddp [070].
+Limits: no cue line length limit [080]; a disc past 99:59:74 [084] or CD-Text needing more than 256 packs [081] is refused instead of written corrupt; wrong CD-Text CRCs in a CDTEXTFILE warn [082].
+Experiment markers: `EXPECT` (must equal the named experiment's output), `ACCEPT` (accepted beyond cue2ddp, no reference), `REFUSE` (refused where cue2ddp writes a broken fileset).
 
 ## IMAGE.cue
 

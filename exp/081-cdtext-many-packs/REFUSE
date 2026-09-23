@@ -1,0 +1,1 @@
+cue2ddp wraps the one-byte CD-Text sequence number past 256 packs, writing invalid CD-Text
