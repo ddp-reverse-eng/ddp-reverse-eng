@@ -7,8 +7,8 @@ module Audio = Audio
 exception Error of string
 
 let error fmt = Printf.ksprintf (fun msg -> raise (Error msg)) fmt
-let sector_size = 2352
-let frames_per_second = 75
+let sector_size = Cd.sector_size
+let frames_per_second = Cd.frames_per_second
 let default_pregap = 2 * frames_per_second
 
 (** Fixed-width ASCII record, space filled. *)
@@ -154,19 +154,13 @@ let layout (cue : Cue.t) (audio : Audio.t) =
   let first_track_start = List.assoc 1 (snd (List.hd tracks)) in
   { pregap; first_track_start; sectors; pq }
 
-let msf frames =
-  Printf.sprintf "%02d%02d%02d"
-    (frames / (60 * frames_per_second))
-    (frames / frames_per_second mod 60)
-    (frames mod frames_per_second)
-
 let sd_packet pq =
   record 64
     [
       text 0 4 "VVVS";
       text 4 2 pq.track;
       text 6 2 (Printf.sprintf "%02d" pq.index);
-      text 10 6 (msf pq.time);
+      text 10 6 (Cd.format_msf pq.time);
       text 16 2 pq.control;
       text 20 12 pq.isrc;
       text 32 13 pq.upc;
@@ -242,12 +236,6 @@ let write_checksums ~dir names =
             (fun n -> Printf.sprintf "%s=%08X\n" n (crc32_file (path n)))
             names))
 
-let cue_time frames =
-  Printf.sprintf "%02d:%02d:%02d"
-    (frames / (60 * frames_per_second))
-    (frames / frames_per_second mod 60)
-    (frames mod frames_per_second)
-
 let text_lines indent (t : Cue.text) =
   List.filter_map
     (fun (command, value) ->
@@ -277,7 +265,9 @@ let image_cue (cue : Cue.t) layout =
       | [] -> []
       | names -> [ Printf.sprintf "    FLAGS %s\n" (String.concat " " names) ])
     @ List.map
-        (fun (i, f) -> Printf.sprintf "    INDEX %02d %s\n" i (cue_time f))
+        (fun (i, f) ->
+          Printf.sprintf "    INDEX %02d %s\n" i
+            (Cd.format_msf ~separator:":" f))
         indexes
   in
   String.concat ""

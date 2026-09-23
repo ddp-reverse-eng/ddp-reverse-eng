@@ -53,11 +53,15 @@ let words rest =
   |> List.filter (( <> ) "")
 
 let frames_of_time ~path ~line time =
-  match String.split_on_char ':' time |> List.map int_of_string_opt with
-  | [ Some m; Some s; Some f ]
-    when s < 60 && f < 75 && m >= 0 && s >= 0 && f >= 0 ->
-      (((m * 60) + s) * 75) + f
-  | _ -> fail ~path ~line "invalid time '%s'" time
+  let frames =
+    match String.split_on_char ':' time |> List.map int_of_string_opt with
+    | [ Some minutes; Some seconds; Some frames ] ->
+        Cd.of_msf ~minutes ~seconds ~frames
+    | _ -> None
+  in
+  match frames with
+  | Some frames -> frames
+  | None -> fail ~path ~line "invalid time '%s'" time
 
 let set_text text command value =
   match command with
