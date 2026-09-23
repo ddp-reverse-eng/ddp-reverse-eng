@@ -1,7 +1,7 @@
 module Reader = Ddp.Reader
 
-let usage = "ddp-play [--driver NAME] DIRECTORY"
-let chunk_sectors = 8
+let usage = "ddp-play [--driver NAME] [--buffer MS] DIRECTORY"
+let chunk_sectors = 16
 let fps = Ddp.Cd.frames_per_second
 
 type state = { position : int; paused : bool; quit : bool }
@@ -62,10 +62,10 @@ let apply disc state = function
 
 let rec parse = function
   | [] -> []
-  | '\027' :: '[' :: 'C' :: rest -> Next :: parse rest
-  | '\027' :: '[' :: 'D' :: rest -> Previous :: parse rest
-  | '\027' :: '[' :: 'A' :: rest -> Seek (60 * fps) :: parse rest
-  | '\027' :: '[' :: 'B' :: rest -> Seek (-60 * fps) :: parse rest
+  | '\027' :: '[' :: 'A' :: rest -> Previous :: parse rest
+  | '\027' :: '[' :: 'B' :: rest -> Next :: parse rest
+  | '\027' :: '[' :: 'C' :: rest -> Seek (10 * fps) :: parse rest
+  | '\027' :: '[' :: 'D' :: rest -> Seek (-10 * fps) :: parse rest
   | (' ' | 'k') :: rest -> Toggle :: parse rest
   | ('n' | '.') :: rest -> Next :: parse rest
   | ('p' | ',') :: rest -> Previous :: parse rest
@@ -164,7 +164,7 @@ let render screen disc state =
        (clock state.position) (clock disc.total));
   line ("[" ^ String.make filled '#' ^ String.make (width - filled) '.' ^ "]");
   line
-    "space play/pause   n/p or arrows: tracks   f/b: 10 s   1-9: track   q: \
+    "space play/pause   up/down: tracks   left/right: 10 s   1-9: track   q: \
      quit";
   print_string ("\027[H" ^ Buffer.contents buffer ^ "\027[J");
   flush stdout
@@ -298,9 +298,13 @@ let play reader ~device =
         (clock final.position))
 
 let () =
-  let driver = ref "" and positional = ref [] in
+  let driver = ref "" and buffer_ms = ref 500 and positional = ref [] in
   Arg.parse
     [
+      ( "--buffer",
+        Arg.Set_int buffer_ms,
+        "MS device buffer in milliseconds (default 500), for drivers that take \
+         one" );
       ( "--driver",
         Arg.Set_string driver,
         "NAME libao driver, e.g. pulse, alsa, null" );
@@ -316,9 +320,14 @@ let () =
           if !driver = "" then Ao.get_default_driver ()
           else Ao.find_driver !driver
         in
-        let device =
+        let open_device options =
           Ao.open_live ~bits:16 ~rate:44100 ~channels:2
-            ~byte_format:`LITTLE_ENDIAN ~driver ()
+            ~byte_format:`LITTLE_ENDIAN ~options ~driver ()
+        in
+        (* pulse, alsa and oss take buffer_time; other drivers refuse unknown options. *)
+        let device =
+          try open_device [ ("buffer_time", string_of_int !buffer_ms) ]
+          with _ -> open_device []
         in
         Fun.protect
           ~finally:(fun () -> Ao.close device)
