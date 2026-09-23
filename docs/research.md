@@ -14,7 +14,7 @@ All descriptor fields are space-padded ASCII.
 | [distillery] | https://github.com/GarageDeveloper/audio-distillery/blob/main/src-tauri/ddp-fileset/src/lib.rs | Rust DDP 2.00 writer, MIT, 2026. Says it was cross-checked against independent readers |
 | [cdda2img] | https://github.com/HomerSlated/cdda2img/blob/main/src/cdda2img/ddp_reader.py | Python reader, GPL-3.0, 2026. Its docs say it took its layouts from ddplib |
 | [pastebin] | https://pastebin.com/vgJdxepj | Python 2 script "ddp-to-kunaki", reverse-engineered from a real DDP. Includes a hexdump |
-| [ruge] | http://ddp.andreasruge.de/ plus `cue2ddp.html` and `ddpinfo.html` | DDP Mastering Tools 1.1 (2018): closed binaries, "Licensed from DCA" |
+| [ddptools] | http://ddp.andreasruge.de/ plus `cue2ddp.html` and `ddpinfo.html` | DDP Mastering Tools 1.1 (2018): closed binaries, "Licensed from DCA" |
 | [sonoris] | https://web.archive.org/web/20151001044016/http://www.sonorissoftware.com/files/TestDDP.zip | **A real DDP 2.00 fileset** made by Sonoris DDP Creator (2011). We dumped it locally (see §6) |
 | [gateway] | https://web.archive.org/web/20140206193919/http://www.gatewaymastering.com/pdf/DDP_Images.pdf | Pressing-plant intake guide |
 | [dca-faq] | http://www.dcainc.com/support/faqs/index.html ("What is DDPi?") | DCA's own FAQ |
@@ -23,25 +23,25 @@ All descriptor fields are space-padded ASCII.
 | [loc] | https://www.loc.gov/preservation/digital/formats/fdd/fdd000630.shtml | Library of Congress format description |
 | [wiki] | https://en.wikipedia.org/wiki/Disc_Description_Protocol | Wikipedia |
 | [reaper1] | https://forum.cockos.com/archive/index.php/t-78922.html (read via web.archive.org) | REAPER DDP export thread, 2011 (author "Sergenious") |
-| [reaper2] | https://forum.cockos.com/archive/index.php/t-78922-p-2.html (read via web.archive.org) | Page 2 of the same thread (2012), with posts from Andreas Ruge ("anrug") |
+| [reaper2] | https://forum.cockos.com/archive/index.php/t-78922-p-2.html (read via web.archive.org) | Page 2 of the same thread (2012), with posts from the ddptools author ("anrug") |
 | [gearspace] | https://gearspace.com/board/mastering-forum/758771-extract-wavs-ddpi-files.html | Returned 403 to us. We only have the search-engine snippet |
 
 ## 1. File set composition and naming
 
 | Fact | Source |
 |---|---|
-| Minimum set: DDPID, DDPMS, a subcode (PQ) descriptor, and one or more `.DAT` audio images | [wiki], [ruge] |
+| Minimum set: DDPID, DDPMS, a subcode (PQ) descriptor, and one or more `.DAT` audio images | [wiki], [ddptools] |
 | DCA's DDPi definition: DDPID (mandatory), DDPMS (mandatory), PQ_DESCR (listed as *optional*), and one or more Image.dat files (mandatory). DDPi covers Red Book CD-DA and two-session Blue Book Enhanced CD, and is "fully compliant with DCA's DDP 1.0 and 2.0" | [dca-faq] |
-| "DDPi" is Universal Music's name for a DDP set stored on random-access media | [dca-faq], [ruge] |
-| Only the names **DDPID** and **DDPMS** are fixed. The PQ file and image file names "must be determined from the DDPMS file". Examples seen: `DDPPQ`, `PQ_DESCR`, `SD`, `PQDESCR` for PQ, and `IC01.TRK`, `IMAGE.DAT`, `IMAGE01.DAT` for images | [gateway], [ruge] (cue2ddp names its PQ file `SD`), [sonoris] (`PQDESCR`), [pastebin] (`PQ_DESCR`) |
-| "all file names of all DDP files are fix", so the only reliable way to name a set is its Master ID. Ruge means cue2ddp's own output | [ruge] |
+| "DDPi" is Universal Music's name for a DDP set stored on random-access media | [dca-faq], [ddptools] |
+| Only the names **DDPID** and **DDPMS** are fixed. The PQ file and image file names "must be determined from the DDPMS file". Examples seen: `DDPPQ`, `PQ_DESCR`, `SD`, `PQDESCR` for PQ, and `IC01.TRK`, `IMAGE.DAT`, `IMAGE01.DAT` for images | [gateway], [ddptools] (cue2ddp names its PQ file `SD`), [sonoris] (`PQDESCR`), [pastebin] (`PQ_DESCR`) |
+| "all file names of all DDP files are fix", so the only reliable way to name a set is its Master ID. The ddptools author means cue2ddp's own output | [ddptools] |
 | The DSI (file name) field is 17 characters. REAPER silently truncates longer names | [xld], [ddplib], REAPER forum search snippet |
-| CD-Text is carried as a binary Sony-style lead-in R–W pack file, usually `CDTEXT.BIN`. The DDPMS entry that declares it is `S0` with SUB=`CDTEXT` | [ruge], [sonoris], [xld], [distillery] |
+| CD-Text is carried as a binary Sony-style lead-in R–W pack file, usually `CDTEXT.BIN`. The DDPMS entry that declares it is `S0` with SUB=`CDTEXT` | [ddptools], [sonoris], [xld], [distillery] |
 | XLD falls back to `CDTEXT.BIN` when DDPMS does not declare CD-Text | [xld] |
 | Multiple image files are allowed: one per session ([sonoris] has IMAGE01/IMAGE02), or one per track (GEAR writes `TRACKnn.DAT`) | [sonoris], [cdda2img] |
-| An optional arbitrary text file is allowed and has no effect on replication. cue2ddp uses one to embed `IMAGE.CUE` | [wiki], [ruge] |
-| Checksums are **not part of DDP**. Ruge had seen "4–5 different flavours" | [reaper2] (anrug), [ruge] |
-| Checksum names seen: `CHECKSUM.MD5` (md5sum) and `CHECKSUM.TXT` (CRC32) from cue2ddp; `MD5-Checksum.md5` (`<md5> *<file>`) from Sonoris; `Checksum.chk` from plants. ddpinfo reads the md5sum, Pyramix, Sequoia, SADiE, Sonoris, DSP Quattro and Wave Editor formats | [ruge], [sonoris], [gateway] |
+| An optional arbitrary text file is allowed and has no effect on replication. cue2ddp uses one to embed `IMAGE.CUE` | [wiki], [ddptools] |
+| Checksums are **not part of DDP**. The ddptools author had seen "4–5 different flavours" | [reaper2] (anrug), [ddptools] |
+| Checksum names seen: `CHECKSUM.MD5` (md5sum) and `CHECKSUM.TXT` (CRC32) from cue2ddp; `MD5-Checksum.md5` (`<md5> *<file>`) from Sonoris; `Checksum.chk` from plants. ddpinfo reads the md5sum, Pyramix, Sequoia, SADiE, Sonoris, DSP Quattro and Wave Editor formats | [ddptools], [sonoris], [gateway] |
 | Proposed CRC32 `CHECKSUM.TXT` shape: comment lines, `Version=1.01`, then `<file>=<crc32 hex8>` | [ddplib] README |
 
 ## 2. DDPID: 128 bytes, one packet
@@ -55,7 +55,7 @@ All descriptor fields are space-padded ASCII.
 | 21 | 8 | MSS map stream start | Blank for random-access media or sequential tape, depending on the source | [ddplib] comment, [distillery] |
 | 29 | 8 | MSL | "Reserved" [ddplib], [mattcarp]; "map stream length in bytes" [distillery]; blank in [sonoris] | conflict |
 | 37 | 1 | MED media number | Blank when there is a single input medium | [ddplib] |
-| 38 | 48 | MID master ID | Free text, not written to the disc | [ddplib], [ruge] (cue2ddp `-m`, up to 48 chars) |
+| 38 | 48 | MID master ID | Free text, not written to the disc | [ddplib], [ddptools] (cue2ddp `-m`, up to 48 chars) |
 | 86 | 1 | BK book specifier | ddplib: "the spec says it should be empty". [sonoris] writes `O` | [ddplib], [sonoris] |
 | 87 | 2 | TY disc type | `CD` or `DV` | [ddplib], [mattcarp], [sonoris] |
 | 89 | 1 | NSIDE | DVD only, blank for CD | [ddplib], [mattcarp] |
@@ -160,18 +160,18 @@ The final `AA` packet appears twice, both here and in [pastebin]'s real sample. 
 - ISRC placement varies:
   - Sonoris puts it on INDEX 00 only when a pregap exists.
   - [pastebin]'s sample, REAPER, Pyramix and GEAR put it on both INDEX 00 and INDEX 01.
-  - Ruge: "Safest is certainly to write the ISRC for index 0 and index 1".
+  - The ddptools author: "Safest is certainly to write the ISRC for index 0 and index 1".
   - Sonoris DDP Creator showed duplicates when it read REAPER output [reaper2].
 - The second CB1 character is read as ADR ([distillery]) or as the SCMS flag ([ddplib], [pastebin] `0S`, and cue2ddp's `SCMS` flag). Only `1` and `S` have been seen.
-- ddpinfo `-f` exists because some masters put the UPC only in DDPID and not in PQ, which can yield a pressed CD without the MCN [ruge].
+- ddpinfo `-f` exists because some masters put the UPC only in DDPID and not in PQ, which can yield a pressed CD without the MCN [ddptools].
 
 ## 5. Audio image and CD-Text payload
 
 | Fact | Source |
 |---|---|
-| IMAGE.DAT holds raw 44.1 kHz, 16-bit, **little-endian**, interleaved stereo audio in 2352-byte sectors | [ruge] cue2ddp manual, [xld] (`XLDLittleEndian`), [distillery], [cdda2img] README, [gearspace] snippet |
+| IMAGE.DAT holds raw 44.1 kHz, 16-bit, **little-endian**, interleaved stereo audio in 2352-byte sectors | [ddptools] cue2ddp manual, [xld] (`XLDLittleEndian`), [distillery], [cdda2img] README, [gearspace] snippet |
 | The image usually includes the initial 150-sector (2 s) pause. REAPER originally did not add it and later did | [distillery], [reaper1], [reaper2] |
-| CDTEXT.BIN is raw 18-byte lead-in packs: type, track, sequence, block/char-position, 12 text bytes, CRC16. It is Sony-style CD-Text written into the lead-in R–W subcode | [xld] struct, [distillery], [ruge] |
+| CDTEXT.BIN is raw 18-byte lead-in packs: type, track, sequence, block/char-position, 12 text bytes, CRC16. It is Sony-style CD-Text written into the lead-in R–W subcode | [xld] struct, [distillery], [ddptools] |
 | The [sonoris] CDTEXT.BIN is 235 bytes: 13 packs plus one trailing `0x00`. ddplib's pack reader would throw on the short trailing read | [sonoris], [ddplib] |
 | "DDP spec does not cover CD-TEXT, DDP only includes the CD-TEXT file". DCA advertises a separate "CD-Text Addendum" for DDP 2.0 | [reaper1] (Sergenious), [dca-lic] |
 
@@ -181,13 +181,13 @@ The final `AA` packet appears twice, both here and in [pastebin]'s real sample. 
 
 | Change | Source |
 |---|---|
-| For Red Book audio, "the only relevant difference" is that 2.00 can include CD-Text | [ruge] |
+| For Red Book audio, "the only relevant difference" is that 2.00 can include CD-Text | [ddptools] |
 | 2.00 DDPID adds BK, TY, sides/layers and DVD fields, and shrinks the user text from 40 to 33 characters | [ddplib] v101 vs v20 |
 | 2.00 DDPMS adds NEW, PRE1NXT, PAUSEADD and OFS in what 1.01 used as padding | [ddplib] |
 | 2.00 adds DST `D4` and `T3`, and drops `D1` | [ddplib] |
 | 2.00 adds SSM `8` | [ddplib] |
 | 2.00 replaces SUB `01RSTUVW`/`02RSTUVW` with `RW..`/`WR..` and adds `CDTEXT` | [ddplib] |
-| 1.00 vs 1.01: no public detail found. ddpinfo reads 1.00, 1.01 and 2.00 | [ruge] |
+| 1.00 vs 1.01: no public detail found. ddpinfo reads 1.00, 1.01 and 2.00 | [ddptools] |
 | DDP was extended to DVD in 1996 (2.10). HD DVD came in 2006 (3.0, a superset of CMF 2.0). DVD CMF is described as a DDP 2.10 subset | [dca-lic], [loc] |
 | The spec was created in 1989 | [dca-la] |
 
@@ -201,10 +201,10 @@ The final `AA` packet appears twice, both here and in [pastebin]'s real sample. 
 | [distillery] | Rust | MIT | **W** | DDPID, DDPMS (D0 plus S0 PQ and CDTEXT), PQ, CDTEXT.BIN, CHECKSUM.MD5 | A modern writer that fits our use case |
 | [cdda2img] | Python | GPL-3.0 | R | DDPID UPC, PQ, CDTEXT.BIN | Hard-codes file names and ignores DDPMS |
 | [pastebin] | Python 2 | none stated | R | DDPMS (DST/SUB/DSI), PQ | Includes a real hexdump |
-| DDP-Builder https://github.com/JonasHRR/DDP-Builder | Python | MIT | W (through cue2ddp) | – | A wrapper around Ruge's binaries, not an independent writer |
+| DDP-Builder https://github.com/JonasHRR/DDP-Builder | Python | MIT | W (through cue2ddp) | – | A wrapper around the ddptools binaries, not an independent writer |
 | studio-duo https://github.com/mbianchidev/studio-duo | C++ | AGPL-3.0 | W (through an external encoder) | – | Chose not to put the DDP byte layout in its AGPL source because of DCA licensing (`docs/mastering.md`) |
 | java-digital-audio-workstation https://github.com/Ben-Esquivel-Music/java-digital-audio-workstation | Java | GPL-3.0 | stub | – | A test fixture with an 8-byte PQDESCR, so not a real implementation |
-| DDP Mastering Tools [ruge] | C? | closed, free | R/W | Everything for Red Book | Not released as open source "due to DCA's licensing conditions" |
+| DDP Mastering Tools [ddptools] | C? | closed, free | R/W | Everything for Red Book | Not released as open source "due to DCA's licensing conditions" |
 
 Closed-source readers and writers used as references: Sonoris DDP Creator/Player, HOFA DDP Player, ddpplayer.com, WaveLab, Pyramix, Sequoia, SADiE, GEAR, and REAPER, which has had built-in DDP export/import since 2011 [wiki], [reaper1].
 
@@ -213,8 +213,8 @@ Closed-source readers and writers used as references: Sonoris DDP Creator/Player
 - REAPER's DDP author (2011): "The DDP format is pretty straightforward". He tested against Sonoris DDP Creator output ("always created completely the same files"). He declined to write CD-Text without official documentation and said "not all CD plants have license from Philips or Sony to make CD TEXT discs" [reaper1].
 - The same author: the Red Book first INDEX 01 must be at 00:02:00 or later. Audio between 00:00:00 and INDEX 01 is a legitimate hidden pre-track [reaper1].
 - REAPER import handled one DDP D0 stream and CD-Text block 0 only, ISO-8859-1 only [reaper1].
-- Ruge (2012): "Even for something as simple as the DDP format you can't simply read the spec and do it right, you have to find out how others do it and what the plant will accept" [reaper2].
-- Ruge: DDPs "usually include the default two seconds of pause at the beginning". Checksums are not part of DDP [reaper2].
+- The ddptools author (2012): "Even for something as simple as the DDP format you can't simply read the spec and do it right, you have to find out how others do it and what the plant will accept" [reaper2].
+- The ddptools author: DDPs "usually include the default two seconds of pause at the beginning". Checksums are not part of DDP [reaper2].
 - A 2004 LAU list post pointed to http://www.dcainc.com/products/ddp/ and said no Linux DDP tool existed yet: https://ccrma.stanford.edu/mirrors/lalists/lau/2004/06/0627.html
 - Hydrogenaudio "XLD can now read/play DDP images" (https://hydrogenaudio.org/index.php/topic,70501.0.html) and the Gearspace extraction thread both returned 403, so their content is unverified.
 
@@ -224,8 +224,8 @@ Closed-source readers and writers used as references: Sonoris DDP Creator/Player
 |---|---|
 | The licence is free, with "no application fee or royalty". You sign an agreement and DCA emails the spec | [dca-la], [dca-lic] |
 | The grant is "limited, non-exclusive, no-cost" to create "products in the proper format". It gives no right to "transfer or further distribute the License Materials" | [dca-la] §1 |
-| §2: the licensee may not "include any portion of the Licensed Material in any derivative work" without written consent. This is presumably why Ruge's tools are closed and studio-duo keeps the layout out of its source | [dca-la], [ruge], studio-duo |
-| §4: every embodiment, including software, must carry "DDP® is a trademark of DCA, Inc.", "Copyright 1989-2008 DCA, Inc.", "Licensed from DCA, Inc." and the DDP logo. Ruge's man pages carry exactly these lines | [dca-la], [ruge] |
+| §2: the licensee may not "include any portion of the Licensed Material in any derivative work" without written consent. This is presumably why the ddptools are closed and studio-duo keeps the layout out of its source | [dca-la], [ddptools], studio-duo |
+| §4: every embodiment, including software, must carry DCA's trademark, copyright and licence notices and the DDP logo. the ddptools author's man pages carry exactly these lines | [dca-la], [ddptools] |
 | The term is one year from signing. Oklahoma law applies, with ICC arbitration in Dallas | [dca-la] §6, §12–13 |
 | DDP® has been a registered trademark of DCA since March 2004 | [dca-lic] |
 | Current versions: CD = DDP 2.0 (with a CD-Text addendum), DVD = 2.10, HD DVD = 3.0, Blu-ray = none | [dca-lic] |
@@ -238,4 +238,4 @@ Closed-source readers and writers used as references: Sonoris DDP Creator/Player
 3. We have no normative statement on SSM `0` vs `7` for CD-DA, or on DSS blank vs `00000000`.
 4. We have no public detail on DDP 1.00 vs 1.01.
 5. What plants validate (for example whether the duplicated final `AA` or ISRC on INDEX 00 vs 01 matters) is known only anecdotally.
-6. The local `bin/` and `docs/*.pdf` (Ruge's tools) can serve as black-box oracles. Running cue2ddp and diffing its output against this document would settle gaps 1 and 3.
+6. The local `bin/` and `docs/*.pdf` (the ddptools) can serve as black-box oracles. Running cue2ddp and diffing its output against this document would settle gaps 1 and 3.

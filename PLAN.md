@@ -1,7 +1,7 @@
 # DDP 2.0 writer: reverse-engineering plan
 
 Target: DDP 2.00 audio CD masters (Red Book), writer side.
-Reference tool: ddptools 1.1 (Andreas Ruge), `tools/ddptools-1.1/` (x86_64 ELF, not stripped, libc only).
+Reference tool: ddptools 1.1, `tools/ddptools-1.1/` (x86_64 ELF, not stripped, libc only).
 Resume point: `STATUS.md`. Each step ends with a STATUS.md update, so work can stop after any step.
 
 ## Method

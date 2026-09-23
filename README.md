@@ -2,9 +2,7 @@
 
 [![CI](https://github.com/ddp-reverse-eng/ddp-reverse-eng/actions/workflows/ci.yml/badge.svg)](https://github.com/ddp-reverse-eng/ddp-reverse-eng/actions/workflows/ci.yml)
 
-An open specification and an MIT-licensed OCaml writer for DDP 2.00 audio CD masters (the Disc Description Protocol filesets that CD plants accept for replication). Both come from black-box reverse engineering of the freely available [DDP Mastering Tools](http://ddp.andreasruge.de/): we run them on our own inputs and study what they write. See [LEGAL.md](LEGAL.md) for why this is lawful.
-
-DDP® is a trademark of DCA, Inc. This project is not affiliated with or endorsed by DCA, Inc.
+An open specification and an MIT-licensed OCaml writer for DDP 2.00 audio CD masters (the Disc Description Protocol filesets that CD plants accept for replication). Both come from black-box reverse engineering of the freely available [DDP Mastering Tools](http://ddp.andreasruge.de/): we run them on our own inputs and study what they write. See [LEGAL.md](LEGAL.md) for why we believe this is lawful.
 
 ## Status
 
