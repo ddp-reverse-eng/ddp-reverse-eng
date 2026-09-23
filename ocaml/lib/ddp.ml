@@ -284,6 +284,9 @@ let text_lines indent (t : Cue.text) =
       ("TITLE", t.title);
       ("PERFORMER", t.performer);
       ("SONGWRITER", t.songwriter);
+      ("COMPOSER", t.composer);
+      ("ARRANGER", t.arranger);
+      ("MESSAGE", t.message);
     ]
 
 (** CDRWin cue sheet for IMAGE.DAT, with absolute index times. *)

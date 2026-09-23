@@ -56,6 +56,9 @@ let text_kinds : (int * (Cue.text -> string option)) list =
     (0x80, fun t -> t.title);
     (0x81, fun t -> t.performer);
     (0x82, fun t -> t.songwriter);
+    (0x83, fun t -> t.composer);
+    (0x84, fun t -> t.arranger);
+    (0x85, fun t -> t.message);
   ]
 
 (** Size information: character set, track range, pack count per kind, last

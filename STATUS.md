@@ -1,6 +1,6 @@
 # Status
 
-Current step: **phase 2, step 10 (extended CD-Text)**. Steps 8-9 done. Repo on github.com/ddp-reverse-eng/ddp-reverse-eng (user pushes; CI = GitHub Actions in step 13).
+Current step: **phase 2, step 11 (reader-side oracle: craft DDP files, see how ddpinfo parses them)**. Steps 8-10 done. Waiting on the user's HOFA image to confirm CD-Text and other writers' field values.
 
 Tools: `bin/exp exp/NNN-name` runs one experiment (folder holds input.cue + run.args); `bin/recs OUTDIR` prints records one per line for diffing; `bin/compare` diffs the OCaml writer against every experiment; `bin/checkspec` checks the spec tables against real output; `bin/ddp` runs any ddptools binary through muvm + FEX (16k-page host).
 Fresh checkout: `bin/fetch-tools` first.
@@ -19,3 +19,4 @@ Fresh checkout: `bin/fetch-tools` first.
 - 2026-09-23: step 8b: cue syntax variants 060-077. Parser fixes: tabs, BOM, case-insensitive commands/flags, unknown commands warn (Cue.parse ~warn). compare: 330 files, 24 rejections.
 - 2026-09-23: step 8c: limits 078-084. cue2ddp writes corrupt output past 99:59:74 and past 256 CD-Text packs; ours refuses (REFUSE marker). New rules: index past end, disc length, CD-Text pack limit, CRC warning. mkwav streams; compare temp dirs moved off tmpfs. compare: 344 files, 28 rejections.
 - 2026-09-23: step 9: multi-FILE cue sheets (Cue.files, index positions per file, paths resolved in Cue). Exp 085-090 with single-file references (`audio.split`, `mkwav from=`). compare: 371 files, 29 rejections.
+- 2026-09-23: step 10: COMPOSER/ARRANGER/MESSAGE -> CD-Text 0x83-0x85, checked with cdtinfo and by round trip through cue2ddp CDTEXTFILE (091/092). compare: 380 files, 29 rejections.

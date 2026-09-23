@@ -1,0 +1,23 @@
+Block 0:
+  Language     : English
+  Character set: ISO 8859-1 (Latin1)
+  Tracks       : 1-2
+  Title
+    Disk  : Disc Title
+    Trk 01: One
+    Trk 02: Two
+  Performer
+    Disk  : Disc Performer
+    Trk 02: Performer Two
+  Songwriter
+    Disk  : Disc Songwriter
+  Composer
+    Disk  : Disc Composer
+    Trk 01: Composer One
+    Trk 02: Composer Two
+  Arranger
+    Disk  : Disc Arranger
+    Trk 01: Arranger One
+  Message
+    Disk  : Disc Message
+    Trk 01: Message One

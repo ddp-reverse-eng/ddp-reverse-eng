@@ -1,5 +1,6 @@
 (** CDRWin cue sheets, restricted to what a DDP audio master needs: audio files,
-    audio tracks, indexes, ISRC, flags, catalog and CD-Text. *)
+    audio tracks, indexes, ISRC, flags, catalog and CD-Text, including the
+    COMPOSER, ARRANGER and MESSAGE extensions. *)
 
 type flags = { pre : bool; dcp : bool; four_channel : bool; scms : bool }
 
@@ -7,6 +8,9 @@ type text = {
   title : string option;
   performer : string option;
   songwriter : string option;
+  composer : string option;
+  arranger : string option;
+  message : string option;
 }
 
 type position = {

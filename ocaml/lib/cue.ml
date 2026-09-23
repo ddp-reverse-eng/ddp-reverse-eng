@@ -4,6 +4,9 @@ type text = {
   title : string option;
   performer : string option;
   songwriter : string option;
+  composer : string option;
+  arranger : string option;
+  message : string option;
 }
 
 type position = {
@@ -32,7 +35,16 @@ type t = {
 }
 
 let no_flags = { pre = false; dcp = false; four_channel = false; scms = false }
-let no_text = { title = None; performer = None; songwriter = None }
+
+let no_text =
+  {
+    title = None;
+    performer = None;
+    songwriter = None;
+    composer = None;
+    arranger = None;
+    message = None;
+  }
 
 let fail ~path ~line fmt =
   Printf.ksprintf (fun msg -> Diag.error "%s:%d: %s" path line msg) fmt
@@ -65,7 +77,10 @@ let set_text text command value =
   match command with
   | "TITLE" -> { text with title = Some value }
   | "PERFORMER" -> { text with performer = Some value }
-  | _ -> { text with songwriter = Some value }
+  | "SONGWRITER" -> { text with songwriter = Some value }
+  | "COMPOSER" -> { text with composer = Some value }
+  | "ARRANGER" -> { text with arranger = Some value }
+  | _ -> { text with message = Some value }
 
 let parse_flags ~path ~line rest =
   List.fold_left
@@ -100,6 +115,9 @@ let known_commands =
     "TITLE";
     "PERFORMER";
     "SONGWRITER";
+    "COMPOSER";
+    "ARRANGER";
+    "MESSAGE";
     "TRACK";
     "ISRC";
     "FLAGS";
@@ -172,10 +190,14 @@ let parse ~warn path =
               files =
                 !disc.files @ [ { path = resolve (argument rest); file_type } ];
             }
-      | ("TITLE" | "PERFORMER" | "SONGWRITER"), None ->
+      | ( ( "TITLE" | "PERFORMER" | "SONGWRITER" | "COMPOSER" | "ARRANGER"
+          | "MESSAGE" ),
+          None ) ->
           disc :=
             { !disc with text = set_text !disc.text command (argument rest) }
-      | ("TITLE" | "PERFORMER" | "SONGWRITER"), Some track ->
+      | ( ( "TITLE" | "PERFORMER" | "SONGWRITER" | "COMPOSER" | "ARRANGER"
+          | "MESSAGE" ),
+          Some track ) ->
           current :=
             Some
               { track with text = set_text track.text command (argument rest) }
