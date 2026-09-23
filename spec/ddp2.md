@@ -151,6 +151,15 @@ From the cue: disc and track TITLE/PERFORMER/SONGWRITER; the cue's bytes are cop
 - Master ID over 48 characters: rejected [042].
 - 99 tracks and 99 indexes are accepted [029][030].
 
+## Reading (ddpinfo as oracle)
+
+`oracle/craft.py` builds filesets cue2ddp never writes and records how ddpinfo reads them (`oracle/<case>/`).
+
+- DDPID user text: SIZ is the 2-digit length at 93, TXT the text at 95 [ddpid-text]. The layout seen in a Sonoris sample (blank at 93, length at 94-95, text from 96) is misread by ddpinfo as SIZ `' 0'` and a text starting with `9` [ddpid-text-sonoris]; a reader should treat a non-numeric SIZ as a warning.
+- Several D0 streams (IMAGE01.DAT, IMAGE02.DAT), with or without DSS start addresses, are listed by `ddpinfo -e` but refused on export ("multiple data files not supported") [two-streams][two-streams-dss]; ddpinfo gives no reference for combining them.
+- SSM `0` and SCR `0` are accepted; the exported audio is unchanged [storage-mode-0][scrambled-0].
+- `ddpinfo -w` exports IMAGE.DAT minus track 1's pregap (PRE2 sectors), with cue times relative to the export [ddpid-text].
+
 ## Open questions
 
 - Meaning of the DDPMS fields: DSP, DSS, CDM `DA`, SSM `7`, SCR `1`, PRE1, PST, NEW, PRE1NXT, PAUSEADD, OFS (for a writer, cue2ddp's values are enough).

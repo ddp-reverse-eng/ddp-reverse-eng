@@ -10,3 +10,4 @@ IMAGE.DAT
 _build/
 audio.bin
 audio.mot
+oracle/*/in/

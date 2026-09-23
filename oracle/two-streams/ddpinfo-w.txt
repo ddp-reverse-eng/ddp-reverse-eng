@@ -1,0 +1,2 @@
+Error: DDP images with multiple data files (found 2) are not supported.
+Converting DDP image to cue/wav image.
