@@ -51,6 +51,6 @@ val to_string : t -> string
 
 val parse : warn:(string -> unit) -> string -> t
 (** Unknown commands are reported through [warn] and ignored, as cue2ddp does; a
-    UTF-8 BOM is skipped and commands, file types and flags are
-    case-insensitive.
+    UTF-8 BOM is skipped, the text of a UTF-8 cue sheet is converted to ISO
+    8859-1, and commands, file types and flags are case-insensitive.
     @raise Diag.Error on syntax errors, with the file name and line number. *)

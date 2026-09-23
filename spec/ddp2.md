@@ -333,7 +333,7 @@ Only the lines that apply are written. Index times are absolute, and track 1 sta
 
 **CD-Text:**
 
-- Text comes from TITLE, PERFORMER and SONGWRITER only with `-t` [017]. It's copied byte for byte, so it must be ISO 8859-1 [031].
+- Text comes from TITLE, PERFORMER and SONGWRITER only with `-t` [017]. It's copied byte for byte, so it must be ISO 8859-1 [031]: a UTF-8 cue sheet ends up garbled, `ö` read back as `Ã¶` [094].
 - A CDTEXTFILE replaces them, copied byte for byte and only with `-t` [018][033]. A file with a 4-byte length header is refused [019]. Bad CRCs go unnoticed [082].
 
 <a id="n3"></a>
@@ -425,6 +425,7 @@ The writer in `ocaml/` produces cue2ddp's output byte for byte on every experime
   One inexact sample refuses the file [050].
 - **UPC-A:** a 12-digit CATALOG is written as the equivalent EAN-13 with a leading `0`, as the cue2ddp manual advises users to do by hand [035]→[093].
 - **Cue syntax:** commands, file types and flags are case-insensitive [061][069]→[077], a BOM is skipped [065], and there's no line length limit [080].
+- **UTF-8 cue sheets:** the text of a cue sheet that is valid UTF-8 and not plain ASCII is converted to ISO 8859-1 [094]→[031]; a character outside ISO 8859-1 is refused [095]. FILE paths are left as they are.
 - **Multiple FILE commands:** the files are joined in order, and each INDEX time counts from its own FILE, including a FILE between a track's indexes as EAC writes [085]→[086][087]→[003][088]→[002]. Every file but the last must end on a sector [089], and an index past the end of its file is refused [090].
 - **CD-Text:** COMPOSER, ARRANGER and MESSAGE become packs 0x83-0x85 [070][091]→[092]. A CDTEXTFILE with bad CRCs gets a warning [082].
 - **Refused instead of written corrupt:** [081][084] ([N3](#n3)).

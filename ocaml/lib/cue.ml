@@ -73,6 +73,22 @@ let frames_of_time ~path ~line time =
   | Some frames -> frames
   | None -> fail ~path ~line "invalid time '%s'" time
 
+(** CD-Text is ISO 8859-1; a UTF-8 cue sheet's text is converted when every
+    character fits. *)
+let latin1_of_utf8 ~path ~line value =
+  let buffer = Buffer.create (String.length value) in
+  let rec loop i =
+    if i < String.length value then (
+      let decoded = String.get_utf_8_uchar value i in
+      let code = Uchar.to_int (Uchar.utf_decode_uchar decoded) in
+      if code > 0xFF then
+        fail ~path ~line "U+%04X is not in ISO 8859-1, which CD-Text uses" code;
+      Buffer.add_char buffer (Char.chr code);
+      loop (i + Uchar.utf_decode_length decoded))
+  in
+  loop 0;
+  Buffer.contents buffer
+
 let set_text text command value =
   match command with
   | "TITLE" -> { text with title = Some value }
@@ -193,6 +209,10 @@ let parse ~warn path =
       String.sub contents 3 (String.length contents - 3)
     else contents
   in
+  let utf8 =
+    String.is_valid_utf_8 contents
+    && String.exists (fun c -> Char.code c >= 0x80) contents
+  in
   let lines = String.split_on_char '\n' contents in
   let resolve file =
     if Filename.is_relative file then
@@ -231,6 +251,10 @@ let parse ~warn path =
         else raw
       in
       let command, rest = split_command raw in
+      let text_argument rest =
+        let value = argument rest in
+        if utf8 then latin1_of_utf8 ~path ~line value else value
+      in
       match (command, !current) with
       | ("" | "REM"), _ -> ()
       | "CATALOG", None -> disc := { !disc with catalog = Some (argument rest) }
@@ -255,13 +279,19 @@ let parse ~warn path =
           | "MESSAGE" ),
           None ) ->
           disc :=
-            { !disc with text = set_text !disc.text command (argument rest) }
+            {
+              !disc with
+              text = set_text !disc.text command (text_argument rest);
+            }
       | ( ( "TITLE" | "PERFORMER" | "SONGWRITER" | "COMPOSER" | "ARRANGER"
           | "MESSAGE" ),
           Some track ) ->
           current :=
             Some
-              { track with text = set_text track.text command (argument rest) }
+              {
+                track with
+                text = set_text track.text command (text_argument rest);
+              }
       | "TRACK", _ ->
           finish_track ();
           if !disc.files = [] then fail ~path ~line "TRACK before FILE";

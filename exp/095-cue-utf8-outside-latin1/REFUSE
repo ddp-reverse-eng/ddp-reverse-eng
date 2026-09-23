@@ -1,0 +1,1 @@
+cue2ddp copies UTF-8 bytes into CD-Text as ISO 8859-1, garbling them; the OCaml writer refuses characters outside ISO 8859-1
