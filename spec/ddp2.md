@@ -158,6 +158,7 @@ From the cue: disc and track TITLE/PERFORMER/SONGWRITER; the cue's bytes are cop
 - DDPID user text: SIZ is the 2-digit length at 93, TXT the text at 95 [ddpid-text]. The layout seen in a Sonoris sample (blank at 93, length at 94-95, text from 96) is misread by ddpinfo as SIZ `' 0'` and a text starting with `9` [ddpid-text-sonoris]; a reader should treat a non-numeric SIZ as a warning.
 - Several D0 streams (IMAGE01.DAT, IMAGE02.DAT), with or without DSS start addresses, are listed by `ddpinfo -e` but refused on export ("multiple data files not supported") [two-streams][two-streams-dss]; ddpinfo gives no reference for combining them.
 - SSM `0` and SCR `0` are accepted; the exported audio is unchanged [storage-mode-0][scrambled-0].
+- The PQ control character: ddpinfo reads `0`-`9` and `0S` (PRE=1, DCP=2, 4CH=8 decode as expected) but rejects `A1` and `B1` as "invalid control byte", the only values that combine 4CH with DCP; its export then carries wrong flags [control-*][export-full]. cue2ddp writes them anyway [006][025]. One of the two tools is wrong; the OCaml writer keeps cue2ddp's output and warns.
 - `ddpinfo -w` exports IMAGE.DAT minus track 1's pregap (PRE2 sectors), with cue times relative to the export [ddpid-text].
 
 ## Open questions

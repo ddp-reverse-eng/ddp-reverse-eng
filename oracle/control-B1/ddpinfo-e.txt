@@ -1,0 +1,79 @@
+======  DDPID STREAM  ======
+DDPID:  'DDP 2.00'
+UPC:    '             '
+MSS:    '        '
+MSL:    '        '
+MED:    ' '
+MID:    '                                                '
+BK:     ' '
+TYPE:   'CD'
+NSIDE:  ' '
+SIDE:   ' '
+NLAYER: ' '
+LAYER:  ' '
+SIZ:    '  '
+TXT:    '                                 '
+
+===  MAP STREAM  ===
+-----  Packet #0  ----------
+MPV:     'VVVM'
+DST:     'S0'
+DSP:     '        '
+DSL:     '     384'
+DSS:     '        '
+SUB:     'PQ DESCR'
+CDM      '  '
+SSM:     ' '
+SCR:     ' '
+PRE1:    '    '
+PRE2:    '    '
+PST:     '    '
+MED:     ' '
+TRK:     '  '
+IDX:     '  '
+ISRC:    '            '
+SIZ:     ' 17'
+DSI:     'SD               '
+NEW:     ' '
+PRE1NXT: '    '
+PAUSEADD:'        '
+OFS:     '         '
+PAD:     '               '
+-----  Packet #1  ----------
+MPV:     'VVVM'
+DST:     'D0'
+DSP:     '        '
+DSL:     '    1650'
+DSS:     '        '
+SUB:     '        '
+CDM      'DA'
+SSM:     '7'
+SCR:     '1'
+PRE1:    '    '
+PRE2:    ' 150'
+PST:     '    '
+MED:     ' '
+TRK:     '  '
+IDX:     '  '
+ISRC:    '            '
+SIZ:     ' 17'
+DSI:     'IMAGE.DAT        '
+NEW:     ' '
+PRE1NXT: '    '
+PAUSEADD:'        '
+OFS:     '         '
+PAD:     '               '
+
+Main data         Type Mode Tk Ix Start    Length   Pre1 Pre2 Post Offset
+----------------- ---- ---- -- -- -------- -------- ---- ---- ---- ---------
+IMAGE.DAT         D0   DA71                    1650       150               
+
+======  SUBCODE DESCRIPTOR  ======
+SPV  Tk/I A-Time   C1 C2 ISRC         UPC           TXT
+---- ---- -------- -- -- ------------ ------------- ------------------------
+VVVS 0000   000000 01                                                  
+VVVS 0100   000000 B1                                                  
+VVVS 0101   000200 B1                                                  
+VVVS 0201   001200 01                                                  
+VVVS AA01   002200 01                                                  
+VVVS AA01   002200 01                                                  

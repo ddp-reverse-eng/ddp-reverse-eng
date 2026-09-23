@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
-"""Builds oracle/<case>/in/ filesets that cue2ddp never writes, from the OCaml
-writer's output for exp/002-two-tracks, then records how ddpinfo reads them.
+"""Builds oracle/<case>/in/ filesets from the OCaml writer's output for an
+experiment, optionally altered into something cue2ddp never writes, then
+records how ddpinfo reads and exports them.
 
-Usage: oracle/craft.py   (needs bin/ddp, i.e. the ddptools)
+Usage: oracle/craft.py [CASE...]   (needs bin/ddp, i.e. the ddptools)
 """
 import hashlib, os, shutil, subprocess, sys
 
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-base_exp = os.path.join(root, "exp", "002-two-tracks")
 
 
-def base_fileset(dest):
+def base_fileset(dest, exp):
+    base_exp = os.path.join(root, "exp", exp)
     subprocess.run([os.path.join(root, "bin", "exp"), "--inputs", base_exp], check=True)
+    options = open(os.path.join(base_exp, "run.args")).read().split()[1:]
     tool = os.path.join(root, "ocaml", "_build", "default", "bin", "cue2ddp.exe")
     subprocess.run(["dune", "build"], cwd=os.path.join(root, "ocaml"), check=True)
-    subprocess.run([tool, "input.cue", dest], cwd=base_exp, check=True)
+    subprocess.run([tool, *options, "input.cue", dest], cwd=base_exp, check=True)
     for f in ("CHECKSUM.MD5", "CHECKSUM.TXT"):
         os.remove(os.path.join(dest, f))
 
@@ -49,13 +51,29 @@ cases = {
     "two-streams-dss": lambda d: split_image(d, dss=True),
     "storage-mode-0": lambda d: edit(os.path.join(d, "DDPMS"), lambda b: put(b, 128 + 40, b"0")),
     "scrambled-0": lambda d: edit(os.path.join(d, "DDPMS"), lambda b: put(b, 128 + 41, b"0")),
+    "export-full": lambda d: None,
 }
 
+
+def set_control(value):
+    def craft(d):
+        # Packets 1 and 2 are track 1's INDEX 00 and 01.
+        edit(os.path.join(d, "SD"), lambda b: put(put(b, 64 + 16, value), 128 + 16, value))
+    return craft
+
+
+for value in ("01", "11", "21", "31", "81", "91", "A1", "B1", "0S"):
+    cases["control-" + value] = set_control(value.encode())
+base = {"export-full": "025-embed-cue-full"}
+
+only = sys.argv[1:]
 for name, craft in cases.items():
+    if only and name not in only:
+        continue
     case = os.path.join(root, "oracle", name)
     shutil.rmtree(os.path.join(case, "in"), ignore_errors=True)
     os.makedirs(case, exist_ok=True)
-    base_fileset(os.path.join(case, "in"))
+    base_fileset(os.path.join(case, "in"), base.get(name, "002-two-tracks"))
     craft(os.path.join(case, "in"))
     ddp = os.path.join(root, "bin", "ddp")
     with open(os.path.join(case, "ddpinfo-e.txt"), "w") as out:

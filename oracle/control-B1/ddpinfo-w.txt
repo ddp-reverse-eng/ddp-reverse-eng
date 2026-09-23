@@ -1,0 +1,10 @@
+Error: invalid control byte "B1" in subcode descriptor, track 1, index 0.
+Error: invalid control byte "B1" in subcode descriptor, track 1, index 1.
+Converting DDP image to cue/wav image.
+Start reading audio from DDP at 00:02:00 (150).
+Start writing 1500 sectors to Wave file "export.wav".
+Time stamp is: 00:00:02.000 (88200 samples).
+Wave file written successfully (0 seconds).
+Start writing cue sheet to file "export.cue".
+Cue sheet written successfully (101 Bytes).
+Time elapsed:  0.0

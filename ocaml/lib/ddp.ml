@@ -70,9 +70,14 @@ let check_ean ~warn code =
   if (10 - (sum mod 10)) mod 10 <> digit 12 then
     warn ("UPC/EAN check digit is wrong: " ^ code)
 
-let validate_track ~next_start ((t : Cue.track), indexes) =
+let validate_track ~warn ~next_start ((t : Cue.track), indexes) =
   if t.flags.dcp && t.flags.scms then
     error "track %02d: DCP and SCMS are mutually exclusive" t.number;
+  if t.flags.four_channel && t.flags.dcp then
+    warn
+      (Printf.sprintf
+         "track %02d: 4CH with DCP gives control %s, which ddpinfo rejects"
+         t.number (control t.flags));
   Option.iter
     (fun isrc ->
       if
@@ -150,7 +155,7 @@ let layout ~warn (cue : Cue.t) files =
     @ [ sectors ]
   in
   List.iter2
-    (fun track next_start -> validate_track ~next_start track)
+    (fun track next_start -> validate_track ~warn ~next_start track)
     tracks starts;
   let upc = Option.value cue.catalog ~default:"" in
   let entry ?(control = "01") ?(isrc = "") ?(upc = "") track index time =
