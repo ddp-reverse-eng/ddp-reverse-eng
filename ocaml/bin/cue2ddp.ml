@@ -23,9 +23,7 @@ let () =
       try
         Ddp.write ~master_id:!master_id ~with_cdtext:!with_cdtext
           ~with_cue:!with_cue ~cue_path ~dir ()
-      with
-      | Ddp.Error msg | Ddp.Cue.Error msg | Ddp.Audio.Error msg | Sys_error msg
-      ->
+      with Ddp.Error msg | Sys_error msg ->
         prerr_endline ("error: " ^ msg);
         exit 1)
   | _ ->

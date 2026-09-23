@@ -29,7 +29,5 @@ type t = {
   tracks : track list;  (** numbered from 1 without gaps *)
 }
 
-exception Error of string
-
 val parse : string -> t
-(** @raise Error on syntax errors, with the file name and line number. *)
+(** @raise Diag.Error on syntax errors, with the file name and line number. *)

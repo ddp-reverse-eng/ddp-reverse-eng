@@ -7,6 +7,7 @@ module Audio = Audio
 exception Error of string
 
 val write :
+  ?warn:(string -> unit) ->
   ?master_id:string ->
   ?with_cdtext:bool ->
   ?with_cue:bool ->
@@ -17,6 +18,4 @@ val write :
 (** Writes DDPID, DDPMS, SD, IMAGE.DAT, CHECKSUM.MD5 and CHECKSUM.TXT for
     [cue_path] into [dir], creating [dir] if needed. [with_cdtext] adds
     CDTEXT.BIN, [with_cue] adds IMAGE.cue.
-    @raise Error
-      on invalid input, [Cue.Error] on cue syntax errors and [Audio.Error] on
-      unsupported or damaged audio. *)
+    @raise Error on invalid input. *)

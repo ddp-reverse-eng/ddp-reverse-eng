@@ -26,15 +26,11 @@ type t = {
   tracks : track list;
 }
 
-exception Error of string
-
 let no_flags = { pre = false; dcp = false; four_channel = false; scms = false }
 let no_text = { title = None; performer = None; songwriter = None }
 
 let fail ~path ~line fmt =
-  Printf.ksprintf
-    (fun msg -> raise (Error (Printf.sprintf "%s:%d: %s" path line msg)))
-    fmt
+  Printf.ksprintf (fun msg -> Diag.error "%s:%d: %s" path line msg) fmt
 
 (** A quoted argument runs to the last double quote of the line, so it may
     contain unescaped quotes. *)

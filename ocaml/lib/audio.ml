@@ -1,6 +1,4 @@
-exception Error of string
-
-let error fmt = Printf.ksprintf (fun msg -> raise (Error msg)) fmt
+let error = Diag.error
 
 type encoding = { float : bool; bits : int; channels : int; big_endian : bool }
 type t = { path : string; offset : int; length : int; encoding : encoding }
@@ -62,7 +60,7 @@ let parse_fmt path fmt =
 
 (** Chunks are read within the RIFF size, so a truncated header finds nothing
     rather than garbage. *)
-let wave path =
+let wave ~warn path =
   In_channel.with_open_bin path (fun ic ->
       let file_length = Int64.to_int (In_channel.length ic) in
       let read n =
@@ -100,8 +98,7 @@ let wave path =
           let t = { path; offset; length; encoding } in
           check_frames t;
           if encoding.channels = 1 then
-            prerr_endline
-              ("warning: " ^ path ^ " is mono, both channels get the same audio");
+            warn (path ^ " is mono, both channels get the same audio");
           t)
 
 (** Decodes one sample to a signed 16-bit value, [None] when it does not fit

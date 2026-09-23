@@ -4,9 +4,9 @@ module Cue = Cue
 module Cdtext = Cdtext
 module Audio = Audio
 
-exception Error of string
+exception Error = Diag.Error
 
-let error fmt = Printf.ksprintf (fun msg -> raise (Error msg)) fmt
+let error = Diag.error
 let sector_size = Cd.sector_size
 let frames_per_second = Cd.frames_per_second
 let default_pregap = 2 * frames_per_second
@@ -48,7 +48,7 @@ let absolute_indexes ~pregap (tracks : Cue.track list) =
     tracks
 
 (** A wrong check digit only warns, as cue2ddp does. *)
-let check_ean code =
+let check_ean ~warn code =
   if
     String.length code <> 13
     || not (String.for_all (fun c -> c >= '0' && c <= '9') code)
@@ -59,7 +59,7 @@ let check_ean code =
     |> List.fold_left ( + ) 0
   in
   if (10 - (sum mod 10)) mod 10 <> digit 12 then
-    prerr_endline ("warning: UPC/EAN check digit is wrong: " ^ code)
+    warn ("UPC/EAN check digit is wrong: " ^ code)
 
 let validate_track ~next_start ((t : Cue.track), indexes) =
   if t.flags.dcp && t.flags.scms then
@@ -87,8 +87,8 @@ let validate_track ~next_start ((t : Cue.track), indexes) =
   if t.number = 1 && start < default_pregap then
     error "first track's pregap is shorter than 2 seconds"
 
-let layout (cue : Cue.t) (audio : Audio.t) =
-  Option.iter check_ean cue.catalog;
+let layout ~warn (cue : Cue.t) (audio : Audio.t) =
+  Option.iter (check_ean ~warn) cue.catalog;
   let first = List.hd cue.tracks in
   let pregap =
     match first.indexes with
@@ -280,8 +280,9 @@ let read_cdtext_file path =
   data
 
 (** Writes the fileset for [cue_path] into [dir]. *)
-let write ?(master_id = "") ?(with_cdtext = false) ?(with_cue = false) ~cue_path
-    ~dir () =
+let write ?(warn = fun msg -> prerr_endline ("warning: " ^ msg))
+    ?(master_id = "") ?(with_cdtext = false) ?(with_cue = false) ~cue_path ~dir
+    () =
   let cue = Cue.parse cue_path in
   let relative file =
     if Filename.is_relative file then
@@ -290,11 +291,11 @@ let write ?(master_id = "") ?(with_cdtext = false) ?(with_cue = false) ~cue_path
   in
   let audio =
     match cue.file_type with
-    | `Wave -> Audio.wave (relative cue.file)
+    | `Wave -> Audio.wave ~warn (relative cue.file)
     | `Binary -> Audio.raw ~big_endian:false (relative cue.file)
     | `Motorola -> Audio.raw ~big_endian:true (relative cue.file)
   in
-  let layout = layout cue audio in
+  let layout = layout ~warn cue audio in
   Audio.validate audio;
   let cdtext =
     if not with_cdtext then ""
