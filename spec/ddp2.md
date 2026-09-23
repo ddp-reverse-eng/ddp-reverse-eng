@@ -108,7 +108,7 @@ From the cue: disc and track TITLE/PERFORMER/SONGWRITER, encoded as ISO 8859-1. 
 
 ## Validation rules seen
 
-- DCP and SCMS together on one track: rejected [006].
+- DCP and SCMS together on one track: rejected [026].
 - Track shorter than 4 s: rejected [015].
 - Track 1 pregap shorter than 2 s: rejected [016].
 - Track 1's first index (00 or 01) not at 00:00:00: rejected [020][022].
