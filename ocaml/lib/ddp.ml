@@ -11,24 +11,6 @@ let sector_size = Cd.sector_size
 let frames_per_second = Cd.frames_per_second
 let default_pregap = 2 * frames_per_second
 
-(** Fixed-width ASCII record, space filled. *)
-let record size fields =
-  let data = Bytes.make size ' ' in
-  List.iter
-    (fun (offset, width, align, value) ->
-      let length = String.length value in
-      if length > width then
-        error "value '%s' does not fit in %d bytes" value width;
-      let start =
-        match align with `Left -> offset | `Right -> offset + width - length
-      in
-      Bytes.blit_string value 0 data start length)
-    fields;
-  Bytes.to_string data
-
-let number offset width n = (offset, width, `Right, string_of_int n)
-let text offset width s = (offset, width, `Left, s)
-
 type pq = {
   track : string;
   index : int;
@@ -154,34 +136,47 @@ let layout (cue : Cue.t) (audio : Audio.t) =
   let first_track_start = List.assoc 1 (snd (List.hd tracks)) in
   { pregap; first_track_start; sectors; pq }
 
+let record size values =
+  try Record.make size values
+  with Record.Overflow (value, width) ->
+    error "value '%s' does not fit in %d bytes" value width
+
 let sd_packet pq =
-  record 64
+  let module F = Record.Pq in
+  record F.size
     [
-      text 0 4 "VVVS";
-      text 4 2 pq.track;
-      text 6 2 (Printf.sprintf "%02d" pq.index);
-      text 10 6 (Cd.format_msf pq.time);
-      text 16 2 pq.control;
-      text 20 12 pq.isrc;
-      text 32 13 pq.upc;
+      (F.version, "VVVS");
+      (F.track, pq.track);
+      (F.index, Printf.sprintf "%02d" pq.index);
+      (F.time, Cd.format_msf pq.time);
+      (F.control, pq.control);
+      (F.isrc, pq.isrc);
+      (F.upc, pq.upc);
     ]
 
 let map_packet ~stream_type ~length ?(subcode = "") ?(track = "") ?(data = [])
     name =
-  record 128
+  let module F = Record.Map in
+  record F.size
     ([
-       text 0 4 "VVVM";
-       text 4 2 stream_type;
-       number 14 8 length;
-       text 30 8 subcode;
-       text 55 2 track;
+       (F.version, "VVVM");
+       (F.stream_type, stream_type);
+       (F.length, string_of_int length);
+       (F.subcode, subcode);
+       (F.track, track);
      ]
     @ data
-    @ [ number 71 3 17; text 74 17 name ])
+    @ [ (F.name_size, string_of_int F.name.width); (F.name, name) ])
 
 let ddpid ~upc ~master_id =
-  record 128
-    [ text 0 8 "DDP 2.00"; text 8 13 upc; text 38 48 master_id; text 87 2 "CD" ]
+  let module F = Record.Ddpid in
+  record F.size
+    [
+      (F.level, "DDP 2.00");
+      (F.upc, upc);
+      (F.master_id, master_id);
+      (F.disc_type, "CD");
+    ]
 
 let write_file path contents =
   Out_channel.with_open_bin path (fun oc ->
@@ -325,12 +320,13 @@ let write ?(master_id = "") ?(with_cdtext = false) ?(with_cue = false) ~cue_path
           ~subcode:"PQ DESCR" "SD";
         map_packet ~stream_type:"D0" ~length:layout.sectors
           ~data:
-            [
-              text 38 2 "DA";
-              text 40 1 "7";
-              text 41 1 "1";
-              number 46 4 layout.first_track_start;
-            ]
+            Record.Map.
+              [
+                (cd_mode, "DA");
+                (storage_mode, "7");
+                (scrambled, "1");
+                (pregap2, string_of_int layout.first_track_start);
+              ]
           "IMAGE.DAT";
       ]
   in
