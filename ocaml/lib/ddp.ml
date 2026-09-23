@@ -189,46 +189,6 @@ let write_image ~dir ~pregap audios =
       if tail > 0 then
         Out_channel.output_string oc (String.make (sector_size - tail) '\000'))
 
-let crc32_table =
-  Array.init 256 (fun n ->
-      let c = ref n in
-      for _ = 1 to 8 do
-        c := if !c land 1 <> 0 then 0xEDB88320 lxor (!c lsr 1) else !c lsr 1
-      done;
-      !c)
-
-let crc32_file path =
-  In_channel.with_open_bin path (fun ic ->
-      let buffer = Bytes.create 65536 in
-      let rec loop crc =
-        match In_channel.input ic buffer 0 (Bytes.length buffer) with
-        | 0 -> crc lxor 0xFFFFFFFF
-        | n ->
-            let crc = ref crc in
-            for i = 0 to n - 1 do
-              crc :=
-                crc32_table.(!crc lxor Bytes.get_uint8 buffer i land 0xFF)
-                lxor (!crc lsr 8)
-            done;
-            loop !crc
-      in
-      loop 0xFFFFFFFF)
-
-let write_checksums ~dir names =
-  let path name = Filename.concat dir name in
-  write_file (path "CHECKSUM.MD5")
-    (String.concat ""
-       (List.map
-          (fun n ->
-            Printf.sprintf "%s *%s\n" (Digest.to_hex (Digest.file (path n))) n)
-          names));
-  write_file (path "CHECKSUM.TXT")
-    (String.concat ""
-       ("[CRC32 Checksum]\n"
-       :: List.map
-            (fun n -> Printf.sprintf "%s=%08X\n" n (crc32_file (path n)))
-            names))
-
 let text_lines indent (t : Cue.text) =
   List.filter_map
     (fun (command, value) ->
@@ -335,7 +295,7 @@ let write ?(warn = fun msg -> prerr_endline ("warning: " ^ msg))
     (Fileset.encode_id
        { upc = Option.value cue.catalog ~default:""; master_id; user_text = "" });
   if with_cue then write_file (path "IMAGE.cue") (image_cue cue layout);
-  write_checksums ~dir
+  Checksum.write ~dir
     ([ "DDPID"; "DDPMS" ]
     @ (if cdtext = "" then [] else [ "CDTEXT.BIN" ])
     @ [ "SD"; "IMAGE.DAT" ])
