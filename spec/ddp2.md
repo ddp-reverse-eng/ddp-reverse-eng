@@ -13,7 +13,7 @@ The same input always gives byte-identical output [001].
 | SD | 64 per packet | PQ subcode descriptor |
 | IMAGE.DAT | 2352 per sector | audio |
 | CDTEXT.BIN | 18 per pack | with `-t`; see CD-Text below |
-| IMAGE.cue | text | with `-c`; `FILE "IMAGE.DAT" BINARY` cue sheet, LF line ends. Not in DDPMS, not in checksum files [012] |
+| IMAGE.cue | text | with `-c`; cue sheet for IMAGE.DAT, see below. Not in DDPMS, not in checksum files [012] |
 | CHECKSUM.MD5 / CHECKSUM.TXT | text | md5sum-style `hash *NAME`; `[CRC32 Checksum]` INI with `NAME=HEX` uppercase. Lists DDPID, DDPMS, [CDTEXT.BIN,] SD, IMAGE.DAT. Not part of DDP. |
 
 ## DDPID
@@ -76,7 +76,7 @@ Packet order: CDTEXT (when present), SD, IMAGE.DAT [011].
 | 8 | 8 | A-Time | 2 spaces + MMSSFF, relative to IMAGE.DAT start (75 frames/s) | [004][008] |
 | 16 | 2 | C1 | Q control/ADR byte in hex: control PRE=1, DCP=2, 4CH=8, ADR=1 (all three flags: `B1`). SCMS replaces the ADR digit with `S` (`0S`). | [006][010] |
 | 18 | 2 | C2 | spaces | [006] |
-| 20 | 12 | ISRC | on the track's index 00 packet, or its first packet | [005] |
+| 20 | 12 | ISRC | on the track's first packet (index 00 when it has a pregap) | [005][023] |
 | 32 | 13 | UPC | on the lead-in packet | [005] |
 | 45 | 19 | TXT | spaces | [005] |
 
@@ -91,10 +91,18 @@ Flags only affect the track's packets, not lead-in or lead-out [006]. Tracks wit
 
 Raw 16-bit little-endian stereo PCM, the wav data copied as-is [001]. If track 1 does not start with INDEX 00, cue2ddp prepends 150 sectors of zeros as a pregap [001]; with INDEX 00 in the file, nothing is added [009]. A last partial sector is padded with zeros to 2352 bytes [013].
 
+## IMAGE.cue
+
+LF line ends. `CATALOG`, disc TITLE/PERFORMER/SONGWRITER, `FILE "IMAGE.DAT" BINARY`, then per track: `  TRACK nn AUDIO`, text lines, `    ISRC`, `    FLAGS` (order PRE DCP 4CH SCMS), `    INDEX` lines with absolute times, track 1 starting with `INDEX 00 00:00:00` [025].
+
 ## CD-Text
 
 CDTEXT.BIN is plain CD-Text: 18-byte packs (type, track, sequence, block/char, 12 text bytes, CRC), no file header [011]. CRC is CRC-16/CCITT (poly 0x1021, init 0) over the first 16 bytes, inverted, big-endian [011]. This is the public MMC/Red Book lead-in format, not DDP-specific.
 Pack types seen: 0x80 title, 0x81 performer, 0x82 songwriter, 0x8f size info [011].
+Text packs: for each type in that order, the disc string then each track's string, each NUL-terminated, cut into 12-byte payloads; the last payload of a type is zero-padded [011].
+A type is written when the disc or any track sets it; tracks without it get an empty string [021]. A type nobody sets is left out [021].
+Pack header: byte 1 is the track owning the payload's first byte, byte 3 that byte's position in its string, capped at 15; the NUL counts as a position [021][024]. Block 0, single-byte characters. Sequence numbers run over all packs [011].
+Size info (3 packs of type 0x8f, header byte 1 = 0, 1, 2): 36 bytes: character set 0 (ISO 8859-1), first track, last track, copyright 0, pack count per type 0x80..0x8f (0x8f counts 3), last sequence number of block 0 at byte 20, language 0x09 (English) at byte 28 [011][021][024].
 From the cue: disc and track TITLE/PERFORMER/SONGWRITER, encoded as ISO 8859-1. Without `-t`, TITLE etc. are ignored [017].
 `CDTEXTFILE` is copied byte for byte and overrides TITLE etc. [018]; a file with the common 4-byte length header is rejected [019].
 
@@ -103,10 +111,10 @@ From the cue: disc and track TITLE/PERFORMER/SONGWRITER, encoded as ISO 8859-1. 
 - DCP and SCMS together on one track: rejected [006].
 - Track shorter than 4 s: rejected [015].
 - Track 1 pregap shorter than 2 s: rejected [016].
+- Track 1's first index (00 or 01) not at 00:00:00: rejected [020][022].
 - Other rules from the manual, not tested yet: CATALOG must be 13 digits with a valid EAN check digit; one FILE only; INDEX 01 required per track.
 
 ## Open questions
 
 - Meaning of the DDPMS fields: DSP, DSS, CDM `DA`, SSM `7`, SCR `1`, PRE1, PST, NEW, PRE1NXT, PAUSEADD, OFS (for a writer, cue2ddp's values are enough).
 - Why the lead-out packet is written twice.
-- How cue2ddp builds the 0x8f size-info packs and fills a partial last pack: follow the public CD-Text spec when implementing, and compare with [011].

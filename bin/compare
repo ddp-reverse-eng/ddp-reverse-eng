@@ -1,0 +1,34 @@
+#!/bin/sh
+# Usage: bin/compare [exp/NNN-name...]
+# Runs the OCaml cue2ddp on each experiment and requires byte-identical
+# output, or a rejection where cue2ddp rejected the input.
+root=$(cd "$(dirname "$0")/.." && pwd)
+(cd "$root/ocaml" && dune build 2>&1) || exit 1
+tool=$root/ocaml/_build/default/bin/cue2ddp.exe
+[ $# -gt 0 ] || set -- "$root"/exp/*/
+failed=0 files=0 rejects=0
+for dir in "$@"; do
+  dir=$(cd "$dir" && pwd); name=$(basename "$dir")
+  set -- $(cat "$dir/run.args")
+  frames=$1; shift
+  [ -f "$dir/audio.wav" ] || "$root/bin/mkwav" "$dir/audio.wav" "$frames"
+  ours=$(mktemp -d)
+  if ls "$dir"/REJECTED* >/dev/null 2>&1; then
+    if (cd "$dir" && "$tool" "$@" input.cue "$ours" 2>/dev/null); then
+      echo "FAIL $name: accepted, cue2ddp rejects: $(cat "$dir"/REJECTED*)"; failed=$((failed + 1))
+    else rejects=$((rejects + 1)); fi
+  elif ! err=$(cd "$dir" && "$tool" "$@" input.cue "$ours" 2>&1); then
+    echo "FAIL $name: $err"; failed=$((failed + 1))
+  else
+    [ -f "$dir/out/IMAGE.DAT" ] || "$root/bin/exp" "$dir"
+    for f in "$dir"/out/*; do
+      files=$((files + 1))
+      cmp -s "$f" "$ours/$(basename "$f")" || { echo "FAIL $name: $(basename "$f") differs"; failed=$((failed + 1)); }
+    done
+    extra=$(cd "$ours" && ls | while read f; do [ -e "$dir/out/$f" ] || echo "$f"; done)
+    [ -z "$extra" ] || { echo "FAIL $name: extra files $extra"; failed=$((failed + 1)); }
+  fi
+  rm -rf "$ours"
+done
+echo "compared $files files, checked $rejects rejections, $failed failures"
+[ "$failed" -eq 0 ] && [ $((files + rejects)) -gt 0 ]

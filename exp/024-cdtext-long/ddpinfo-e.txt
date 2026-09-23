@@ -1,0 +1,119 @@
+======  DDPID STREAM  ======
+DDPID:  'DDP 2.00'
+UPC:    '             '
+MSS:    '        '
+MSL:    '        '
+MED:    ' '
+MID:    '                                                '
+BK:     ' '
+TYPE:   'CD'
+NSIDE:  ' '
+SIDE:   ' '
+NLAYER: ' '
+LAYER:  ' '
+SIZ:    '  '
+TXT:    '                                 '
+
+===  MAP STREAM  ===
+-----  Packet #0  ----------
+MPV:     'VVVM'
+DST:     'S0'
+DSP:     '        '
+DSL:     '     234'
+DSS:     '        '
+SUB:     'CDTEXT  '
+CDM      '  '
+SSM:     ' '
+SCR:     ' '
+PRE1:    '    '
+PRE2:    '    '
+PST:     '    '
+MED:     ' '
+TRK:     '00'
+IDX:     '  '
+ISRC:    '            '
+SIZ:     ' 17'
+DSI:     'CDTEXT.BIN       '
+NEW:     ' '
+PRE1NXT: '    '
+PAUSEADD:'        '
+OFS:     '         '
+PAD:     '               '
+-----  Packet #1  ----------
+MPV:     'VVVM'
+DST:     'S0'
+DSP:     '        '
+DSL:     '     320'
+DSS:     '        '
+SUB:     'PQ DESCR'
+CDM      '  '
+SSM:     ' '
+SCR:     ' '
+PRE1:    '    '
+PRE2:    '    '
+PST:     '    '
+MED:     ' '
+TRK:     '  '
+IDX:     '  '
+ISRC:    '            '
+SIZ:     ' 17'
+DSI:     'SD               '
+NEW:     ' '
+PRE1NXT: '    '
+PAUSEADD:'        '
+OFS:     '         '
+PAD:     '               '
+-----  Packet #2  ----------
+MPV:     'VVVM'
+DST:     'D0'
+DSP:     '        '
+DSL:     '     900'
+DSS:     '        '
+SUB:     '        '
+CDM      'DA'
+SSM:     '7'
+SCR:     '1'
+PRE1:    '    '
+PRE2:    ' 150'
+PST:     '    '
+MED:     ' '
+TRK:     '  '
+IDX:     '  '
+ISRC:    '            '
+SIZ:     ' 17'
+DSI:     'IMAGE.DAT        '
+NEW:     ' '
+PRE1NXT: '    '
+PAUSEADD:'        '
+OFS:     '         '
+PAD:     '               '
+
+Main data         Type Mode Tk Ix Start    Length   Pre1 Pre2 Post Offset
+----------------- ---- ---- -- -- -------- -------- ---- ---- ---- ---------
+IMAGE.DAT         D0   DA71                     900       150               
+
+======  SUBCODE DESCRIPTOR  ======
+SPV  Tk/I A-Time   C1 C2 ISRC         UPC           TXT
+---- ---- -------- -- -- ------------ ------------- ------------------------
+VVVS 0000   000000 01                                                  
+VVVS 0100   000000 01                                                  
+VVVS 0101   000200 01                                                  
+VVVS AA01   001200 01                                                  
+VVVS AA01   001200 01                                                  
+
+======  CD TEXT INFORMATION  ======
+Pt E T# S# D B Cp  Text (hexadecimal)                    Text(Latin1)  CRC 
+-----------------  ------------------------------------  ------------  ----
+80 0 00 00 0 0  0  41 20 64 69 73 63  20 74 69 74 6C 65  A disc title  315A 
+80 0 00 01 0 0 12  20 74 68 61 74 20  69 73 20 71 75 69   that is qui  F35B 
+80 0 00 02 0 0 15  74 65 20 61 20 62  69 74 20 6C 6F 6E  te a bit lon  6003 
+80 0 00 03 0 0 15  67 65 72 20 74 68  61 6E 20 66 69 66  ger than fif  31CF 
+80 0 00 04 0 0 15  74 65 65 6E 20 63  68 61 72 61 63 74  teen charact  B582 
+80 0 00 05 0 0 15  65 72 73 00 41 6E  6F 74 68 65 72 20  ers.Another   A0EF 
+80 0 01 06 0 0  8  6C 6F 6E 67 20 74  72 61 63 6B 20 74  long track t  70DD 
+80 0 01 07 0 0 15  69 74 6C 65 2C 20  6F 76 65 72 20 74  itle, over t  AF75 
+80 0 01 08 0 0 15  68 69 72 74 79 20  63 68 61 72 73 00  hirty chars.  B0AA 
+81 0 00 09 0 0  0  50 00 51 00 00 00  00 00 00 00 00 00  P.Q.........  AC79 
+8F 0 00 0A 0 0  0  00 01 01 00 09 01  00 00 00 00 00 00  ............  C559 
+8F 0 01 0B 0 0  0  00 00 00 00 00 00  00 03 0C 00 00 00  ............  E740 
+8F 0 02 0C 0 0  0  00 00 00 00 09 00  00 00 00 00 00 00  ............  8C8A 

@@ -1,0 +1,3 @@
+(executable
+ (name cue2ddp)
+ (libraries ddp))

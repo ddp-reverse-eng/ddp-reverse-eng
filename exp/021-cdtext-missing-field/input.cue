@@ -1,0 +1,9 @@
+TITLE "T"
+FILE "audio.wav" WAVE
+  TRACK 01 AUDIO
+    TITLE "A"
+    INDEX 01 00:00:00
+  TRACK 02 AUDIO
+    TITLE "B"
+    SONGWRITER "Writer Two"
+    INDEX 01 00:10:00

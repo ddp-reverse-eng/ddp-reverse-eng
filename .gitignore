@@ -7,3 +7,4 @@
 IMAGE.DAT
 # bin/ddp scratch directories
 .run.*
+_build/
