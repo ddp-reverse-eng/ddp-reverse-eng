@@ -1,0 +1,11 @@
+; Byte-for-byte comparison with cue2ddp on every experiment in ../../exp.
+; The experiments live outside the dune project, hence (universe).
+
+(rule
+ (alias runtest)
+ (deps (universe) %{exe:../bin/cue2ddp.exe})
+ (action
+  (setenv
+   CUE2DDP
+   %{exe:../bin/cue2ddp.exe}
+   (system "../../../../bin/compare"))))

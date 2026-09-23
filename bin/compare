@@ -2,9 +2,15 @@
 # Usage: bin/compare [exp/NNN-name...]
 # Runs the OCaml cue2ddp on each experiment and requires byte-identical
 # output, or a rejection where cue2ddp rejected the input.
+# IMAGE.DAT is not committed; the committed CHECKSUM.MD5 still pins it.
+# CUE2DDP names a prebuilt executable (dune test sets it); otherwise it is built here.
 root=$(cd "$(dirname "$0")/.." && pwd)
-(cd "$root/ocaml" && dune build 2>&1) || exit 1
-tool=$root/ocaml/_build/default/bin/cue2ddp.exe
+if [ -n "$CUE2DDP" ]; then
+  tool=$(realpath "$CUE2DDP")
+else
+  (cd "$root/ocaml" && dune build 2>&1) || exit 1
+  tool=$root/ocaml/_build/default/bin/cue2ddp.exe
+fi
 [ $# -gt 0 ] || set -- "$root"/exp/*/
 failed=0 files=0 rejects=0
 for dir in "$@"; do
@@ -20,12 +26,11 @@ for dir in "$@"; do
   elif ! err=$(cd "$dir" && "$tool" "$@" input.cue "$ours" 2>&1); then
     echo "FAIL $name: $err"; failed=$((failed + 1))
   else
-    [ -f "$dir/out/IMAGE.DAT" ] || "$root/bin/exp" "$dir"
     for f in "$dir"/out/*; do
       files=$((files + 1))
       cmp -s "$f" "$ours/$(basename "$f")" || { echo "FAIL $name: $(basename "$f") differs"; failed=$((failed + 1)); }
     done
-    extra=$(cd "$ours" && ls | while read f; do [ -e "$dir/out/$f" ] || echo "$f"; done)
+    extra=$(cd "$ours" && ls | while read f; do [ "$f" = IMAGE.DAT ] || [ -e "$dir/out/$f" ] || echo "$f"; done)
     [ -z "$extra" ] || { echo "FAIL $name: extra files $extra"; failed=$((failed + 1)); }
   fi
   rm -rf "$ours"
