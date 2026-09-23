@@ -2,17 +2,14 @@
  (name ddpplay)
  (public_name ddp-play)
  (package ddp-player)
- (libraries ddp ao unix))
+ (libraries ddp ao unix threads.posix))
 
 ; Key handling, driven headless through libao's null driver.
 
 (rule
  (alias runtest)
  (package ddp-player)
- (deps
-  (universe)
-  %{exe:../bin/cue2ddp.exe}
-  %{exe:ddpplay.exe})
+ (deps (universe) %{exe:../bin/cue2ddp.exe} %{exe:ddpplay.exe})
  (action
   (setenv
    CUE2DDP

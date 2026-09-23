@@ -18,3 +18,6 @@ val of_file : warn:(string -> unit) -> string -> string
 (** Reads a binary CD-Text file: bare packs, no header. Packs with a wrong CRC
     are reported through [warn] and kept, as cue2ddp keeps them.
     @raise Diag.Error when it is not a whole number of packs. *)
+
+val to_utf8 : string -> string
+(** CD-Text character set 0 (ISO 8859-1) to UTF-8, for display. *)

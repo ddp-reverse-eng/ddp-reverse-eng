@@ -196,3 +196,10 @@ let decode data =
             (String.split_on_char '\000' text))
     text_kinds;
   Array.to_list (Array.mapi (fun track text -> (track, text)) texts)
+
+let to_utf8 latin1 =
+  let buffer = Buffer.create (String.length latin1) in
+  String.iter
+    (fun c -> Buffer.add_utf_8_uchar buffer (Uchar.of_int (Char.code c)))
+    latin1;
+  Buffer.contents buffer

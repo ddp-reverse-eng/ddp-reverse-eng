@@ -1,7 +1,7 @@
 module Reader = Ddp.Reader
 
 let usage = "ddp-play [--driver NAME] DIRECTORY"
-let chunk_sectors = 4
+let chunk_sectors = 8
 let fps = Ddp.Cd.frames_per_second
 
 type state = { position : int; paused : bool; quit : bool }
@@ -76,14 +76,15 @@ let rec parse = function
       Goto (Char.code c - Char.code '0') :: parse rest
   | _ :: rest -> parse rest
 
+(** [None] once stdin is closed, as with scripted keys. *)
 let poll_keys ~timeout =
   match Unix.select [ Unix.stdin ] [] [] timeout with
-  | [], _, _ -> []
+  | [], _, _ -> Some []
   | _ -> (
       let buffer = Bytes.create 64 in
       match Unix.read Unix.stdin buffer 0 64 with
-      | 0 -> []
-      | n -> parse (List.init n (Bytes.get buffer)))
+      | 0 -> None
+      | n -> Some (parse (List.init n (Bytes.get buffer))))
 
 let clock frames =
   let seconds = abs frames / fps in
@@ -102,38 +103,55 @@ let describe (text : Ddp.Cue.text) ~default =
   | None, Some p -> p
   | None, None -> default
 
-let render reader disc state =
+type screen = { heading : string; summary : string; rows : string array }
+
+(** Text is laid out in ISO 8859-1, one byte per character, then converted. *)
+let screen reader disc =
+  let utf8 = Ddp.Cdtext.to_utf8 in
+  let flags (t : Reader.track) =
+    String.concat " "
+      (List.filter_map
+         (fun (set, name) -> if set then Some name else None)
+         [
+           (t.flags.pre, "PRE");
+           (t.flags.dcp, "DCP");
+           (t.flags.four_channel, "4CH");
+           (t.flags.scms, "SCMS");
+         ])
+  in
+  {
+    heading =
+      utf8
+        (describe (Reader.disc_text reader)
+           ~default:(Filename.basename reader.dir));
+    summary =
+      Printf.sprintf "%d tracks, %s%s" (Array.length disc.tracks)
+        (clock disc.total)
+        (match Reader.catalog reader with
+        | Some c -> "   UPC " ^ c
+        | None -> "");
+    rows =
+      Array.mapi
+        (fun n (t : Reader.track) ->
+          Printf.sprintf "%02d  %s  %s %s" t.number
+            (clock (track_length disc n))
+            (utf8 (fit 48 (describe t.text ~default:"")))
+            (flags t))
+        disc.tracks;
+  }
+
+let render screen disc state =
   let i = current disc state.position in
   let track = disc.tracks.(i) in
   let buffer = Buffer.create 4096 in
   let line s = Buffer.add_string buffer (s ^ "\027[K\n") in
-  line
-    (describe (Reader.disc_text reader) ~default:(Filename.basename reader.dir));
-  line
-    (Printf.sprintf "%d tracks, %s%s" (Array.length disc.tracks)
-       (clock disc.total)
-       (match Reader.catalog reader with Some c -> "   UPC " ^ c | None -> ""));
+  line screen.heading;
+  line screen.summary;
   line (String.make 72 '-');
   Array.iteri
-    (fun n (t : Reader.track) ->
-      let marker = if n = i then "\027[7m>" else " " in
-      let flags =
-        String.concat " "
-          (List.filter_map
-             (fun (set, name) -> if set then Some name else None)
-             [
-               (t.flags.pre, "PRE");
-               (t.flags.dcp, "DCP");
-               (t.flags.four_channel, "4CH");
-               (t.flags.scms, "SCMS");
-             ])
-      in
-      line
-        (Printf.sprintf "%s %02d  %s  %s %s\027[0m" marker t.number
-           (clock (track_length disc n))
-           (fit 48 (describe t.text ~default:""))
-           flags))
-    disc.tracks;
+    (fun n row ->
+      line (if n = i then "\027[7m> " ^ row ^ "\027[0m" else "  " ^ row))
+    screen.rows;
   line (String.make 72 '-');
   let into = state.position - Reader.track_start track in
   let width = 40 in
@@ -165,49 +183,114 @@ let with_raw_terminal f =
         flush stdout)
       f
 
+type shared = {
+  mutable state : state;
+  lock : Mutex.t;
+  resumed : Condition.t;  (** signalled on unpause and on quit *)
+}
+(** The audio thread owns the pace; the UI thread only reads and edits the
+    state. *)
+
+let locked shared f =
+  Mutex.lock shared.lock;
+  match f () with
+  | result ->
+      Mutex.unlock shared.lock;
+      result
+  | exception e ->
+      Mutex.unlock shared.lock;
+      raise e
+
+let update shared commands =
+  locked shared (fun () ->
+      let before = shared.state in
+      shared.state <- List.fold_left (fun s c -> c s) before commands;
+      if (before.paused && not shared.state.paused) || shared.state.quit then
+        Condition.broadcast shared.resumed)
+
+(** Reads and plays chunk after chunk, so the device is never starved by the UI.
+*)
+let feed disc audio device shared =
+  let buffer = Bytes.create (chunk_sectors * Ddp.Cd.sector_size) in
+  let rec loop () =
+    let next =
+      locked shared (fun () ->
+          while shared.state.paused && not shared.state.quit do
+            Condition.wait shared.resumed shared.lock
+          done;
+          let s = shared.state in
+          if s.quit then None
+          else
+            let count = min chunk_sectors (disc.total - s.position) in
+            let position = s.position + count in
+            shared.state <- { s with position; quit = position >= disc.total };
+            Some (s.position, count))
+    in
+    match next with
+    | None -> ()
+    | Some (sector, count) ->
+        let read = Reader.read_sectors audio ~sector buffer ~count in
+        Ao.play device (Bytes.sub_string buffer 0 (read * Ddp.Cd.sector_size));
+        loop ()
+  in
+  loop ()
+
 let play reader ~device =
   let tracks = Array.of_list (Reader.tracks reader) in
   if tracks = [||] then raise (Ddp.Error "no tracks");
   let disc = { tracks; total = Reader.audio_sectors reader } in
-  let audio = Reader.open_audio reader in
-  let buffer = Bytes.create (chunk_sectors * Ddp.Cd.sector_size) in
+  let screen = screen reader disc in
   let interactive = Unix.isatty Unix.stdout in
-  let rec loop state last_draw =
-    let state =
-      List.fold_left (apply disc) state
-        (poll_keys ~timeout:(if state.paused then 0.1 else 0.))
-    in
-    let state =
-      if state.paused || state.quit then state
-      else
-        let count =
-          Reader.read_sectors audio ~sector:state.position buffer
-            ~count:(min chunk_sectors (disc.total - state.position))
-        in
-        Ao.play device (Bytes.sub_string buffer 0 (count * Ddp.Cd.sector_size));
-        let position = state.position + count in
-        { state with position; quit = position >= disc.total }
-    in
-    let now = Unix.gettimeofday () in
-    let last_draw =
-      if interactive && now -. last_draw > 0.1 then (
-        render reader disc state;
-        now)
-      else last_draw
-    in
-    if state.quit then state else loop state last_draw
-  in
-  Fun.protect
-    ~finally:(fun () -> Reader.close_audio audio)
-    (fun () ->
-      let start =
+  let commands keys = List.map (fun key s -> apply disc s key) keys in
+  let shared =
+    {
+      state =
         {
           position = Reader.track_start tracks.(0);
           paused = false;
           quit = false;
-        }
-      in
-      let final = with_raw_terminal (fun () -> loop start 0.) in
+        };
+      lock = Mutex.create ();
+      resumed = Condition.create ();
+    }
+  in
+  let audio = Reader.open_audio reader in
+  Fun.protect
+    ~finally:(fun () -> Reader.close_audio audio)
+    (fun () ->
+      with_raw_terminal (fun () ->
+          (* Scripted keys are applied before any audio plays, so a run is repeatable. *)
+          let open_stdin =
+            match
+              poll_keys ~timeout:(if Unix.isatty Unix.stdin then 0. else 1.)
+            with
+            | Some keys ->
+                update shared (commands keys);
+                true
+            | None -> false
+          in
+          let feeder =
+            Thread.create (fun () -> feed disc audio device shared) ()
+          in
+          let rec ui open_stdin =
+            let open_stdin =
+              if not open_stdin then (
+                Thread.delay 0.1;
+                false)
+              else
+                match poll_keys ~timeout:0.1 with
+                | Some keys ->
+                    update shared (commands keys);
+                    true
+                | None -> false
+            in
+            let state = locked shared (fun () -> shared.state) in
+            if interactive then render screen disc state;
+            if not state.quit then ui open_stdin
+          in
+          ui open_stdin;
+          Thread.join feeder);
+      let final = shared.state in
       let i = current disc final.position in
       Printf.printf "stopped at track %02d, %s into it, disc %s\n"
         tracks.(i).number
