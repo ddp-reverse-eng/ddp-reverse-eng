@@ -161,7 +161,28 @@ From the cue: disc and track TITLE/PERFORMER/SONGWRITER; the cue's bytes are cop
 - The PQ control character: ddpinfo reads `0`-`9` and `0S` (PRE=1, DCP=2, 4CH=8 decode as expected) but rejects `A1` and `B1` as "invalid control byte", the only values that combine 4CH with DCP; its export then carries wrong flags [control-*][export-full]. cue2ddp writes them anyway [006][025]. One of the two tools is wrong; the OCaml writer keeps cue2ddp's output and warns.
 - `ddpinfo -w` exports IMAGE.DAT minus track 1's pregap (PRE2 sectors), with cue times relative to the export [ddpid-text].
 
+## Other writers
+
+Two real filesets from other software, compared with cue2ddp: [sonoris] (Sonoris DDP Creator, public sample, see docs/research.md) and [hofa] (HOFA CD-Burn.DDP.Master, a private master; only structural facts are recorded).
+
+| Record | Field | cue2ddp | Sonoris | HOFA |
+|---|---|---|---|---|
+| DDPID | UPC | 13-digit EAN, required | | 12-digit UPC-A, left-aligned |
+| DDPID | user text | none | length at 94-95, text from 96 | length at 94-95, text from 96 |
+| DDPMS | numbers (DSL, SIZ) | space-padded (`     900`, ` 17`) | zero-padded | zero-padded (`00000522`, `017`) |
+| DDPMS | DSS of D0 | blank | `00000000` | `00000000` |
+| DDPMS | SCR of D0 | `1` | `0` | `0` |
+| DDPMS | TRK of CDTEXT | `00` | `00` | blank |
+| DDPMS | PQ file name | `SD` | `PQDESCR` | `PQDESCR` |
+| PQ | UPC | lead-in packet only | | every packet |
+| PQ | lead-out packet | twice | twice | twice |
+| checksums | MD5 file | `CHECKSUM.MD5`, LF | `MD5-Checksum.md5` | `MD5_CHECKSUM.MD5`, CRLF |
+
+All three agree on CDM `DA`, SSM `7` (audio), a 150-sector track 1 pregap in the image with PRE2 `150`, C1 `01`, the time base, and the doubled lead-out.
+Both independent writers place the DDPID user-text length at 94 and the text at 96, one byte later than ddpinfo and the public readers read it [ddpid-text-sonoris]; the reader accepts both.
+HOFA's CDTEXT.BIN (title, performer, songwriter, composer, arranger) is byte-identical to the OCaml encoder's output for the same strings, which confirms the 0x83/0x84 layout and every CD-Text rule above against an independent writer.
+
 ## Open questions
 
 - Meaning of the DDPMS fields: DSP, DSS, CDM `DA`, SSM `7`, SCR `1`, PRE1, PST, NEW, PRE1NXT, PAUSEADD, OFS (for a writer, cue2ddp's values are enough).
-- Why the lead-out packet is written twice.
+- Why the lead-out packet is written twice (cue2ddp, Sonoris and HOFA all do it).
