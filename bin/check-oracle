@@ -1,6 +1,6 @@
 #!/bin/sh
 # Usage: bin/check-oracle
-# Rebuilds every oracle fileset (no ddptools needed) and requires ddpread's
+# Rebuilds every oracle fileset (no ddptools needed) and requires ddp-read's
 # export to equal ddpinfo's: same cue sheet and same PCM. Cases where ddpinfo
 # reported an error are skipped, since its export is not a reference there.
 root=$(cd "$(dirname "$0")/.." && pwd)

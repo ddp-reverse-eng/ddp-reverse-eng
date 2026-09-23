@@ -7,7 +7,7 @@
 # ACCEPT: ours accepts what cue2ddp refuses, with no reference to compare.
 # REFUSE: ours refuses what cue2ddp accepts, because cue2ddp's output is broken.
 # IMAGE.DAT is not committed; the committed CHECKSUM.MD5 still pins it.
-# Every fileset the writer produces must also pass ddpread without errors.
+# Every fileset the writer produces must also pass ddp-read without errors.
 # CUE2DDP and DDPREAD name prebuilt executables (dune test sets them); otherwise they are built here.
 root=$(cd "$(dirname "$0")/.." && pwd)
 if [ -n "$CUE2DDP" ]; then
@@ -39,7 +39,7 @@ for dir in "$@"; do
   [ -f "$dir/audio.wav" ] || "$root/bin/exp" --inputs "$dir"
   ours=$(mktemp -d "$root/.run.XXXXXX")
   if (cd "$dir" && "$tool" "$@" input.cue "$ours" > "$ours.log" 2>&1); then
-    "$reader" "$ours" 2>&1 >/dev/null | grep '^error:' | while read -r issue; do echo "FAIL $name: ddpread: $issue"; done | tee "$ours.read"
+    "$reader" "$ours" 2>&1 >/dev/null | grep '^error:' | while read -r issue; do echo "FAIL $name: ddp-read: $issue"; done | tee "$ours.read"
     [ ! -s "$ours.read" ] || failed=$((failed + 1))
     if [ -f "$dir/EXPECT" ]; then same_as "$root/exp/$(cat "$dir/EXPECT")/out"
     elif [ -f "$dir/ACCEPT" ]; then files=$((files + 1))

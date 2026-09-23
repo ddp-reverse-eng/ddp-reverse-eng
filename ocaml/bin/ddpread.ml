@@ -1,4 +1,4 @@
-let usage = "ddpread [--export FILE.wav] DIRECTORY"
+let usage = "ddp-read [--export FILE.wav] DIRECTORY"
 
 let print_summary (r : Ddp.Reader.t) =
   Printf.printf "DDP 2.00  UPC %s  master ID %s%s\n"

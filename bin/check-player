@@ -1,6 +1,6 @@
 #!/bin/sh
 # Usage: bin/check-player
-# Drives ddpplay headless (libao null driver, keys on stdin) over the fileset of
+# Drives ddp-play headless (libao null driver, keys on stdin) over the fileset of
 # exp/014-three-tracks and checks where each key script stops.
 # CUE2DDP and DDPPLAY name prebuilt executables (dune test sets them).
 root=$(cd "$(dirname "$0")/.." && pwd)

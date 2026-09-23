@@ -27,7 +27,7 @@ or, from a checkout, run the top-level `./ddpwrite`, `./ddpread` and `./ddpplay`
 ## Writing a master
 
 ```
-ddpwrite [-m MASTER-ID] [-t] [-c] album.cue out/
+ddp-write [-m MASTER-ID] [-t] [-c] album.cue out/
 ```
 
 - `-m`: master identifier, up to 48 characters
@@ -39,8 +39,8 @@ The cue sheet names one or more WAVE, BINARY or MOTOROLA files, joined in order 
 ## Reading a master
 
 ```
-ddpread DIR                       summary and checks
-ddpread --export out.wav DIR      audio from track 1 INDEX 01 plus out.cue, as ddpinfo -w
+ddp-read DIR                       summary and checks
+ddp-read --export out.wav DIR      audio from track 1 INDEX 01 plus out.cue, as ddpinfo -w
 ```
 
 Checks report errors (the fileset breaks the format), warnings (valid but risky) and notes (fields another writer fills differently); the exit status is 1 when there is an error.
@@ -48,7 +48,7 @@ Checks report errors (the fileset breaks the format), warnings (valid but risky)
 ## Playing a master
 
 ```
-ddpplay [--driver NAME] DIR
+ddp-play [--driver NAME] DIR
 ```
 
 A console player (package `ddp-player`, through libao): the track list with CD-Text and lengths, the current position in the track and on the disc, and a progress bar. It starts at track 1 INDEX 01 like a CD player, and shows a pregap as a countdown.
@@ -65,7 +65,7 @@ A console player (package `ddp-player`, through libao): the track list with CD-T
 
 ## Testing
 
-`dune test` (from `ocaml/`) runs `bin/compare`, which runs the writer on every experiment in `exp/`, compares the result with the recorded `cue2ddp` output and reads it back with `ddpread`, and `bin/check-oracle`, which compares `ddpread`'s export with `ddpinfo`'s, and `bin/check-player`, which drives `ddpplay` through libao's null driver. Neither needs the ddptools: test audio is regenerated with python3. The tests need the repository checkout, not only the `ocaml/` package.
+`dune test` (from `ocaml/`) runs `bin/compare`, which runs the writer on every experiment in `exp/`, compares the result with the recorded `cue2ddp` output and reads it back with `ddp-read`, and `bin/check-oracle`, which compares `ddp-read`'s export with `ddpinfo`'s, and `bin/check-player`, which drives `ddp-play` through libao's null driver. Neither needs the ddptools: test audio is regenerated with python3. The tests need the repository checkout, not only the `ocaml/` package.
 
 ## Repository layout
 

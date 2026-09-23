@@ -1,6 +1,6 @@
 module Reader = Ddp.Reader
 
-let usage = "ddpplay [--driver NAME] DIRECTORY"
+let usage = "ddp-play [--driver NAME] DIRECTORY"
 let chunk_sectors = 4
 let fps = Ddp.Cd.frames_per_second
 

@@ -1,5 +1,5 @@
 ; Byte-for-byte comparison with cue2ddp on every experiment in ../../exp, and
-; ddpread's export against ddpinfo's on every case in ../../oracle. Both live
+; ddp-read's export against ddpinfo's on every case in ../../oracle. Both live
 ; outside the dune project, hence (universe).
 
 (rule

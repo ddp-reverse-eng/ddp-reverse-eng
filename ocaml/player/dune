@@ -1,6 +1,6 @@
 (executable
  (name ddpplay)
- (public_name ddpplay)
+ (public_name ddp-play)
  (package ddp-player)
  (libraries ddp ao unix))
 
