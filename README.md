@@ -2,12 +2,14 @@
 
 [![CI](https://github.com/ddp-reverse-eng/ddp-reverse-eng/actions/workflows/ci.yml/badge.svg)](https://github.com/ddp-reverse-eng/ddp-reverse-eng/actions/workflows/ci.yml)
 
-An open specification and an MIT-licensed OCaml writer for DDP 2.00 audio CD masters (the Disc Description Protocol filesets that CD plants accept for replication). Both come from black-box reverse engineering of the freely available [DDP Mastering Tools](http://ddp.andreasruge.de/): we run them on our own inputs and study what they write. See [LEGAL.md](LEGAL.md) for why we believe this is lawful.
+An open specification and MIT-licensed OCaml tools to write, read and play DDP 2.00 audio CD masters (the Disc Description Protocol filesets that CD plants accept for replication). Both come from black-box reverse engineering of the freely available [DDP Mastering Tools](http://ddp.andreasruge.de/): we run them on our own inputs and study what they write. See [LEGAL.md](LEGAL.md) for why we believe this is lawful.
 
 ## Status
 
 - `spec/ddp2.md`: every byte of DDPID, DDPMS, SD (PQ descriptor), IMAGE.DAT and CDTEXT.BIN as written by `cue2ddp` 1.1, plus its validation rules. Each fact cites the experiment that shows it.
-- `ocaml/`: a `cue2ddp`-compatible writer. It produces output byte-identical to `cue2ddp` on every experiment `cue2ddp` accepts, and rejects what it rejects, except where `spec/ddp2.md` documents a deliberate difference (lossless audio conversion, multiple files, refusing inputs `cue2ddp` would write corrupt).
+- `ddp-write`: a cue2ddp-compatible writer. It produces output byte-identical to `cue2ddp` on every experiment `cue2ddp` accepts, and rejects what it rejects, except where `spec/ddp2.md` documents a deliberate difference (lossless audio conversion, multiple files, refusing inputs `cue2ddp` would write corrupt).
+- `ddp-read`: reads a fileset, checks it against the spec, and exports it as WAV plus cue sheet exactly like `ddpinfo -w`.
+- `ddp-play`: a console player with the track list, CD-Text, position and seek controls.
 
 Output is what `cue2ddp` produces: one audio stream, Red Book audio, CD-Text block 0 in ISO 8859-1.
 
@@ -20,7 +22,7 @@ opam pin add ddp git+https://github.com/ddp-reverse-eng/ddp-reverse-eng.git --su
 opam pin add ddp-player git+https://github.com/ddp-reverse-eng/ddp-reverse-eng.git --subpath ocaml   # optional, needs libao
 ```
 
-or, from a checkout, run the top-level `./ddpwrite`, `./ddpread` and `./ddpplay` scripts: they build on demand through `opam exec dune exec`, like liquidsoap's `./liquidsoap`.
+or, from a checkout, run the top-level `./ddp-write`, `./ddp-read` and `./ddp-play` scripts: they build on demand through `opam exec dune exec`, like liquidsoap's `./liquidsoap`.
 
 ## Writing a master
 
