@@ -1,0 +1,53 @@
+#!/usr/bin/env python3
+"""Usage: mkwav-variant VARIANT OUT.wav FRAMES
+
+Writes a WAVE file variant carrying the bin/mkwav position pattern, so that a
+lossless conversion to 16-bit stereo must reproduce bin/mkwav's samples.
+"""
+import array, struct, sys
+
+variant, out, frames = sys.argv[1], sys.argv[2], int(sys.argv[3])
+n = frames * 588
+pattern = array.array("H", array.array("I", range(n)).tobytes())  # L0 R0 L1 R1 ...
+
+def chunk(tag, data):
+    return tag + struct.pack("<I", len(data)) + data + (b"\0" if len(data) % 2 else b"")
+
+def fmt(tag=1, channels=2, rate=44100, bits=16, extensible=False):
+    align = channels * bits // 8
+    body = struct.pack("<HHIIHH", 0xFFFE if extensible else tag, channels, rate, rate * align, align, bits)
+    if extensible:
+        guid = struct.pack("<H", tag) + bytes.fromhex("000000001000800000aa00389b71")
+        body += struct.pack("<HHI", 22, bits, 3 if channels == 2 else 4) + guid
+    return chunk(b"fmt ", body)
+
+def riff(*chunks, size=None):
+    body = b"WAVE" + b"".join(chunks)
+    return b"RIFF" + struct.pack("<I", len(body) if size is None else size) + body
+
+def samples(convert, count=None):
+    return b"".join(convert(s) for s in (pattern if count is None else pattern[:count]))
+
+def signed(s):
+    return s - 65536 if s >= 32768 else s
+
+pcm16 = pattern.tobytes()
+mono = array.array("H", pattern[0::2]).tobytes()
+variants = {
+    "extensible-16": lambda: riff(fmt(extensible=True), chunk(b"data", pcm16)),
+    "data-before-fmt": lambda: riff(chunk(b"data", pcm16), fmt()),
+    "extra-chunks": lambda: riff(chunk(b"LIST", b"INFOISFT\x05\0\0\0test\0"), fmt(), chunk(b"junk", b"abc"), chunk(b"data", pcm16), chunk(b"id3 ", b"xyz")),
+    "odd-data-size": lambda: riff(fmt(), chunk(b"data", pcm16 + b"\x01\x02")),
+    "mono-16": lambda: riff(fmt(channels=1), chunk(b"data", mono)),
+    "24bit-exact": lambda: riff(fmt(bits=24), chunk(b"data", samples(lambda s: b"\0" + struct.pack("<h", signed(s))))),
+    "24bit-inexact": lambda: riff(fmt(bits=24), chunk(b"data", samples(lambda s: b"\x01" + struct.pack("<h", signed(s))))),
+    "float-exact": lambda: riff(fmt(tag=3, bits=32), chunk(b"data", samples(lambda s: struct.pack("<f", signed(s) / 32768)))),
+    "48k": lambda: riff(fmt(rate=48000), chunk(b"data", pcm16)),
+    "8bit": lambda: riff(fmt(bits=8), chunk(b"data", bytes((s >> 8) ^ 0x80 for s in pattern))),
+    "dual-mono-16": lambda: riff(fmt(), chunk(b"data", array.array("H", [x for s in pattern[0::2] for x in (s, s)]).tobytes())),
+    "16bit-8bit-content": lambda: riff(fmt(), chunk(b"data", array.array("H", [s & 0xFF00 for s in pattern]).tobytes())),
+    "no-data": lambda: riff(fmt()),
+    "riff-size-zero": lambda: riff(fmt(), chunk(b"data", pcm16), size=0),
+    "data-size-max": lambda: riff(fmt(), b"data" + struct.pack("<I", 0xFFFFFFFF) + pcm16),
+}
+open(out, "wb").write(variants[variant]())

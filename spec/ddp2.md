@@ -91,6 +91,17 @@ Flags only affect the track's packets, not lead-in or lead-out [006]. Tracks wit
 
 Raw 16-bit little-endian stereo PCM, the wav data copied as-is [001]. BINARY input (raw little-endian) and MOTOROLA input (raw big-endian, byte-swapped on copy) give the same IMAGE.DAT [027][028]. If track 1 does not start with INDEX 00, cue2ddp prepends 150 sectors of zeros as a pregap [001]; with INDEX 00 in the file, nothing is added [009]. A last partial sector is padded with zeros to 2352 bytes [013].
 
+## Input audio (cue2ddp)
+
+- WAVE: only format tag 1 (PCM), 16-bit, 2 channels, 44100 Hz [044][048][049][051][052][053]. Extensible headers (0xFFFE) are refused even for 16-bit PCM [044].
+- Chunks may come in any order and unknown chunks are skipped [045][046]. A RIFF size of 0 is refused [055].
+- The data size must be whole stereo frames (multiple of 4), for WAVE and BINARY alike [047][056][059]; missing data chunk refused [054].
+
+## Writer extensions (OCaml writer only)
+
+Where cue2ddp refuses an input that converts to 16-bit stereo without changing any sample, the OCaml writer converts it and must produce the same fileset as the equivalent 16-bit stereo input (`EXPECT` in the experiment):
+extensible headers [044], mono duplicated to both channels with a warning [048]→[057], 8-bit [053]→[058], 24/32-bit integer and 32/64-bit float whose samples are all exactly 16-bit [049][051]. A single inexact sample refuses the whole file [050]. Sample rates other than 44.1 kHz, more than two channels and compressed formats are refused [052].
+
 ## IMAGE.cue
 
 LF line ends. `CATALOG`, disc TITLE/PERFORMER/SONGWRITER, `FILE "IMAGE.DAT" BINARY`, then per track: `  TRACK nn AUDIO`, text lines, `    ISRC`, `    FLAGS` (order PRE DCP 4CH SCMS), `    INDEX` lines with absolute times, track 1 starting with `INDEX 00 00:00:00` [025].

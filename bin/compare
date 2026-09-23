@@ -1,7 +1,9 @@
 #!/bin/sh
 # Usage: bin/compare [exp/NNN-name...]
 # Runs the OCaml cue2ddp on each experiment and requires byte-identical
-# output, or a rejection where cue2ddp rejected the input.
+# output, or a rejection where cue2ddp rejected the input (REJECTED).
+# EXPECT names another experiment whose output ours must match instead: our
+# writer accepts some inputs cue2ddp refuses, e.g. losslessly converted WAV.
 # IMAGE.DAT is not committed; the committed CHECKSUM.MD5 still pins it.
 # CUE2DDP names a prebuilt executable (dune test sets it); otherwise it is built here.
 root=$(cd "$(dirname "$0")/.." && pwd)
@@ -13,27 +15,35 @@ else
 fi
 [ $# -gt 0 ] || set -- "$root"/exp/*/
 failed=0 files=0 rejects=0
+
+fail() { echo "FAIL $name: $*"; failed=$((failed + 1)); }
+
+# Compares our output in $ours with the reference output directory $1.
+same_as() {
+  for f in "$1"/*; do
+    files=$((files + 1))
+    cmp -s "$f" "$ours/$(basename "$f")" || fail "$(basename "$f") differs from $1"
+  done
+  extra=$(cd "$ours" && ls | while read f; do [ "$f" = IMAGE.DAT ] || [ -e "$1/$f" ] || echo "$f"; done)
+  [ -z "$extra" ] || fail "extra files $extra"
+}
+
 for dir in "$@"; do
   dir=$(cd "$dir" && pwd); name=$(basename "$dir")
   set -- $(cat "$dir/run.args")
-  frames=$1; shift
+  shift
   [ -f "$dir/audio.wav" ] || "$root/bin/exp" --inputs "$dir"
   ours=$(mktemp -d)
-  if ls "$dir"/REJECTED* >/dev/null 2>&1; then
-    if (cd "$dir" && "$tool" "$@" input.cue "$ours" 2>/dev/null); then
-      echo "FAIL $name: accepted, cue2ddp rejects: $(cat "$dir"/REJECTED*)"; failed=$((failed + 1))
-    else rejects=$((rejects + 1)); fi
-  elif ! err=$(cd "$dir" && "$tool" "$@" input.cue "$ours" 2>&1); then
-    echo "FAIL $name: $err"; failed=$((failed + 1))
+  if (cd "$dir" && "$tool" "$@" input.cue "$ours" > "$ours.log" 2>&1); then
+    if [ -f "$dir/EXPECT" ]; then same_as "$root/exp/$(cat "$dir/EXPECT")/out"
+    elif [ -f "$dir/REJECTED" ]; then fail "accepted, cue2ddp rejects: $(cat "$dir/REJECTED")"
+    else same_as "$dir/out"; fi
+  elif [ -f "$dir/REJECTED" ] && [ ! -f "$dir/EXPECT" ]; then
+    rejects=$((rejects + 1))
   else
-    for f in "$dir"/out/*; do
-      files=$((files + 1))
-      cmp -s "$f" "$ours/$(basename "$f")" || { echo "FAIL $name: $(basename "$f") differs"; failed=$((failed + 1)); }
-    done
-    extra=$(cd "$ours" && ls | while read f; do [ "$f" = IMAGE.DAT ] || [ -e "$dir/out/$f" ] || echo "$f"; done)
-    [ -z "$extra" ] || { echo "FAIL $name: extra files $extra"; failed=$((failed + 1)); }
+    fail "$(cat "$ours.log")"
   fi
-  rm -rf "$ours"
+  rm -rf "$ours" "$ours.log"
 done
 echo "compared $files files, checked $rejects rejections, $failed failures"
 [ "$failed" -eq 0 ] && [ $((files + rejects)) -gt 0 ]

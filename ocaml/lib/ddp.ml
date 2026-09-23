@@ -2,6 +2,7 @@
 
 module Cue = Cue
 module Cdtext = Cdtext
+module Audio = Audio
 
 exception Error of string
 
@@ -27,71 +28,6 @@ let record size fields =
 
 let number offset width n = (offset, width, `Right, string_of_int n)
 let text offset width s = (offset, width, `Left, s)
-
-type audio = {
-  path : string;
-  data_offset : int;
-  data_length : int;
-  big_endian : bool;
-}
-
-(** Locates the PCM data of a 44.1 kHz 16-bit stereo WAVE file. *)
-let wave_audio path =
-  In_channel.with_open_bin path (fun ic ->
-      let read_u32 () =
-        match In_channel.really_input_string ic 4 with
-        | Some s -> Int32.to_int (String.get_int32_le s 0) land 0xFFFFFFFF
-        | None -> error "%s: truncated WAVE file" path
-      in
-      let read_tag () =
-        match In_channel.really_input_string ic 4 with
-        | Some s -> s
-        | None -> error "%s: no data chunk" path
-      in
-      if read_tag () <> "RIFF" then error "%s: not a RIFF file" path;
-      ignore (read_u32 ());
-      if read_tag () <> "WAVE" then error "%s: not a WAVE file" path;
-      let rec chunks () =
-        let tag = read_tag () in
-        let size = read_u32 () in
-        let start = In_channel.pos ic in
-        match tag with
-        | "data" ->
-            {
-              path;
-              data_offset = Int64.to_int start;
-              data_length = size;
-              big_endian = false;
-            }
-        | "fmt " ->
-            let fmt = Option.get (In_channel.really_input_string ic 16) in
-            if
-              String.get_uint16_le fmt 0 <> 1
-              || String.get_uint16_le fmt 2 <> 2
-              || String.get_int32_le fmt 4 <> 44100l
-              || String.get_uint16_le fmt 14 <> 16
-            then error "%s: audio must be 44.1 kHz 16-bit stereo PCM" path;
-            In_channel.seek ic
-              (Int64.add start (Int64.of_int (size + (size land 1))));
-            chunks ()
-        | _ ->
-            In_channel.seek ic
-              (Int64.add start (Int64.of_int (size + (size land 1))));
-            chunks ()
-      in
-      chunks ())
-
-let raw_audio ~big_endian path =
-  let data_length =
-    In_channel.with_open_bin path (fun ic ->
-        Int64.to_int (In_channel.length ic))
-  in
-  { path; data_offset = 0; data_length; big_endian }
-
-let swap_samples buffer length =
-  for i = 0 to (length / 2) - 1 do
-    Bytes.set_uint16_le buffer (2 * i) (Bytes.get_uint16_be buffer (2 * i))
-  done
 
 type pq = {
   track : string;
@@ -169,7 +105,7 @@ let validate_track ~next_start ((t : Cue.track), indexes) =
   if t.number = 1 && start < default_pregap then
     error "first track's pregap is shorter than 2 seconds"
 
-let layout (cue : Cue.t) (audio : audio) =
+let layout (cue : Cue.t) (audio : Audio.t) =
   Option.iter check_ean cue.catalog;
   let first = List.hd cue.tracks in
   let pregap =
@@ -181,7 +117,7 @@ let layout (cue : Cue.t) (audio : audio) =
     | [] -> error "track 01: INDEX 01 is required"
   in
   let sectors =
-    pregap + ((audio.data_length + sector_size - 1) / sector_size)
+    pregap + ((Audio.output_length audio + sector_size - 1) / sector_size)
   in
   let tracks = absolute_indexes ~pregap cue.tracks in
   List.iter
@@ -257,25 +193,12 @@ let write_file path contents =
   Out_channel.with_open_bin path (fun oc ->
       Out_channel.output_string oc contents)
 
-let write_image ~dir ~pregap (audio : audio) =
+let write_image ~dir ~pregap audio =
   Out_channel.with_open_bin (Filename.concat dir "IMAGE.DAT") (fun oc ->
       Out_channel.output_string oc (String.make (pregap * sector_size) '\000');
-      In_channel.with_open_bin audio.path (fun ic ->
-          In_channel.seek ic (Int64.of_int audio.data_offset);
-          let buffer = Bytes.create 65536 in
-          let rec copy remaining =
-            if remaining > 0 then (
-              let n =
-                In_channel.input ic buffer 0
-                  (min remaining (Bytes.length buffer))
-              in
-              if n = 0 then error "%s: audio data is truncated" audio.path;
-              if audio.big_endian then swap_samples buffer n;
-              Out_channel.output oc buffer 0 n;
-              copy (remaining - n))
-          in
-          copy audio.data_length);
-      let tail = audio.data_length mod sector_size in
+      Audio.iter_pcm16 audio (fun buffer length ->
+          Out_channel.output oc buffer 0 length);
+      let tail = Audio.output_length audio mod sector_size in
       if tail > 0 then
         Out_channel.output_string oc (String.make (sector_size - tail) '\000'))
 
@@ -382,11 +305,12 @@ let write ?(master_id = "") ?(with_cdtext = false) ?(with_cue = false) ~cue_path
   in
   let audio =
     match cue.file_type with
-    | `Wave -> wave_audio (relative cue.file)
-    | `Binary -> raw_audio ~big_endian:false (relative cue.file)
-    | `Motorola -> raw_audio ~big_endian:true (relative cue.file)
+    | `Wave -> Audio.wave (relative cue.file)
+    | `Binary -> Audio.raw ~big_endian:false (relative cue.file)
+    | `Motorola -> Audio.raw ~big_endian:true (relative cue.file)
   in
   let layout = layout cue audio in
+  Audio.validate audio;
   let cdtext =
     if not with_cdtext then ""
     else

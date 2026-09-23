@@ -1,6 +1,7 @@
 #!/bin/sh
 # Usage: bin/exp [--inputs] exp/NNN-name
-# The directory holds input.cue and run.args: "FRAMES [cue2ddp options...]".
+# The directory holds input.cue and run.args: "FRAMES [cue2ddp options...]",
+# and optionally audio.variant naming a bin/mkwav-variant variant.
 # Generates the audio the cue references (audio.wav, raw audio.bin, byte-swapped
 # audio.mot), then rebuilds out/ with cue2ddp and logs its output.
 # With --inputs, only generates the audio.
@@ -11,8 +12,16 @@ dir=$1
 root=$(cd "$(dirname "$0")/.." && pwd)
 set -- $(cat "$dir/run.args")
 frames=$1; shift
-"$root/bin/mkwav" "$dir/audio.wav" "$frames"
-if grep -q audio.bin "$dir/input.cue"; then tail -c +45 "$dir/audio.wav" > "$dir/audio.bin"; fi
+if [ -f "$dir/audio.variant" ]; then
+  "$root/bin/mkwav-variant" "$(cat "$dir/audio.variant")" "$dir/audio.wav" "$frames"
+else
+  "$root/bin/mkwav" "$dir/audio.wav" "$frames"
+fi
+if grep -q audio.bin "$dir/input.cue"; then
+  tail -c +45 "$dir/audio.wav" > "$dir/audio.bin"
+  # audio.trailing: extra bytes appended to audio.bin, e.g. half a sample frame
+  [ ! -f "$dir/audio.trailing" ] || cat "$dir/audio.trailing" >> "$dir/audio.bin"
+fi
 if grep -q audio.mot "$dir/input.cue"; then
   tail -c +45 "$dir/audio.wav" | python3 -c "import sys,array;a=array.array('H',sys.stdin.buffer.read());a.byteswap();sys.stdout.buffer.write(a.tobytes())" > "$dir/audio.mot"
 fi
