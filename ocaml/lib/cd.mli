@@ -11,3 +11,6 @@ val of_msf : minutes:int -> seconds:int -> frames:int -> int option
 
 val format_msf : ?separator:string -> int -> string
 (** [MM<sep>SS<sep>FF]; minutes go past 59 rather than into hours. *)
+
+val parse_packed_msf : string -> int option
+(** Frame count of a six-digit [MMSSFF] time. *)

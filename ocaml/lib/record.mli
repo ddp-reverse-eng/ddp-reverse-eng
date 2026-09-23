@@ -9,12 +9,20 @@ exception Overflow of string * int
 
 val make : int -> (field * string) list -> string
 
+val get : field -> string -> string
+(** The raw, unpadded bytes of a field. *)
+
 module Ddpid : sig
   val size : int
   val level : field
   val upc : field
   val master_id : field
   val disc_type : field
+  val user_text_length : field
+  val user_text : field
+
+  val all : (string * field) list
+  (** Every field, named as ddpinfo names it, covering the whole record. *)
 end
 
 (** DDPMS packets. *)
@@ -23,6 +31,7 @@ module Map : sig
   val version : field
   val stream_type : field
   val length : field
+  val start : field
   val subcode : field
   val cd_mode : field
   val storage_mode : field
@@ -34,6 +43,9 @@ module Map : sig
   (** Holds the width of [name]. *)
 
   val name : field
+
+  val all : (string * field) list
+  (** Every field, named as ddpinfo names it, covering the whole record. *)
 end
 
 (** PQ descriptor (SD) packets. *)
@@ -49,4 +61,7 @@ module Pq : sig
   val control : field
   val isrc : field
   val upc : field
+
+  val all : (string * field) list
+  (** Every field, named as ddpinfo names it, covering the whole record. *)
 end

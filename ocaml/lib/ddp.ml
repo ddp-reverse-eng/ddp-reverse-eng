@@ -11,14 +11,6 @@ let sector_size = Cd.sector_size
 let frames_per_second = Cd.frames_per_second
 let default_pregap = 2 * frames_per_second
 
-type pq = {
-  track : string;
-  index : int;
-  time : int;
-  control : string;
-  isrc : string;
-  upc : string;
-}
 (** A PQ entry, times in frames from the start of IMAGE.DAT. *)
 
 type layout = {
@@ -28,7 +20,7 @@ type layout = {
   tracks : (Cue.track * (int * int) list) list;
       (** each track's (index, time) pairs, times in frames from the start of
           IMAGE.DAT *)
-  pq : pq list;
+  pq : Fileset.pq list;
 }
 
 let control (flags : Cue.flags) =
@@ -159,7 +151,7 @@ let layout ~warn (cue : Cue.t) files =
     tracks starts;
   let upc = Option.value cue.catalog ~default:"" in
   let entry ?(control = "01") ?(isrc = "") ?(upc = "") track index time =
-    { track; index; time; control; isrc; upc }
+    ({ track; index; time; control; isrc; upc } : Fileset.pq)
   in
   let track_entries ((t : Cue.track), indexes) =
     List.mapi
@@ -177,48 +169,6 @@ let layout ~warn (cue : Cue.t) files =
   in
   let first_track_start = List.assoc 1 (snd (List.hd tracks)) in
   { pregap; first_track_start; sectors; tracks; pq }
-
-let record size values =
-  try Record.make size values
-  with Record.Overflow (value, width) ->
-    error "value '%s' does not fit in %d bytes" value width
-
-let sd_packet pq =
-  let module F = Record.Pq in
-  record F.size
-    [
-      (F.version, "VVVS");
-      (F.track, pq.track);
-      (F.index, Printf.sprintf "%02d" pq.index);
-      (F.time, Cd.format_msf pq.time);
-      (F.control, pq.control);
-      (F.isrc, pq.isrc);
-      (F.upc, pq.upc);
-    ]
-
-let map_packet ~stream_type ~length ?(subcode = "") ?(track = "") ?(data = [])
-    name =
-  let module F = Record.Map in
-  record F.size
-    ([
-       (F.version, "VVVM");
-       (F.stream_type, stream_type);
-       (F.length, string_of_int length);
-       (F.subcode, subcode);
-       (F.track, track);
-     ]
-    @ data
-    @ [ (F.name_size, string_of_int F.name.width); (F.name, name) ])
-
-let ddpid ~upc ~master_id =
-  let module F = Record.Ddpid in
-  record F.size
-    [
-      (F.level, "DDP 2.00");
-      (F.upc, upc);
-      (F.master_id, master_id);
-      (F.disc_type, "CD");
-    ]
 
 let write_file path contents =
   Out_channel.with_open_bin path (fun oc ->
@@ -341,39 +291,49 @@ let write ?(warn = fun msg -> prerr_endline ("warning: " ^ msg))
       | None -> Cdtext.encode ~disc:cue.text ~tracks:cue.tracks
   in
   let path name = Filename.concat dir name in
-  let sd = String.concat "" (List.map sd_packet layout.pq) in
-  let cdtext_packet =
-    if cdtext = "" then []
-    else
-      [
-        map_packet ~stream_type:"S0" ~length:(String.length cdtext)
-          ~subcode:"CDTEXT" ~track:"00" "CDTEXT.BIN";
-      ]
-  in
-  let map =
-    cdtext_packet
+  let sd = String.concat "" (List.map Fileset.encode_pq layout.pq) in
+  let streams =
+    (if cdtext = "" then []
+     else
+       [
+         {
+           Fileset.blank_stream with
+           stream_type = "S0";
+           length = String.length cdtext;
+           subcode = "CDTEXT";
+           track = "00";
+           name = "CDTEXT.BIN";
+         };
+       ])
     @ [
-        map_packet ~stream_type:"S0" ~length:(String.length sd)
-          ~subcode:"PQ DESCR" "SD";
-        map_packet ~stream_type:"D0" ~length:layout.sectors
-          ~data:
-            Record.Map.
-              [
-                (cd_mode, "DA");
-                (storage_mode, "7");
-                (scrambled, "1");
-                (pregap2, string_of_int layout.first_track_start);
-              ]
-          "IMAGE.DAT";
+        {
+          Fileset.blank_stream with
+          stream_type = "S0";
+          length = String.length sd;
+          subcode = "PQ DESCR";
+          name = "SD";
+        };
+        {
+          Fileset.blank_stream with
+          stream_type = "D0";
+          length = layout.sectors;
+          cd_mode = "DA";
+          storage_mode = "7";
+          scrambled = "1";
+          pregap2 = Some layout.first_track_start;
+          name = "IMAGE.DAT";
+        };
       ]
   in
   if not (Sys.file_exists dir) then Sys.mkdir dir 0o755;
   write_image ~dir ~pregap:layout.pregap (List.map snd files);
   if cdtext <> "" then write_file (path "CDTEXT.BIN") cdtext;
   write_file (path "SD") sd;
-  write_file (path "DDPMS") (String.concat "" map);
+  write_file (path "DDPMS")
+    (String.concat "" (List.map Fileset.encode_stream streams));
   write_file (path "DDPID")
-    (ddpid ~upc:(Option.value cue.catalog ~default:"") ~master_id);
+    (Fileset.encode_id
+       { upc = Option.value cue.catalog ~default:""; master_id; user_text = "" });
   if with_cue then write_file (path "IMAGE.cue") (image_cue cue layout);
   write_checksums ~dir
     ([ "DDPID"; "DDPMS" ]
