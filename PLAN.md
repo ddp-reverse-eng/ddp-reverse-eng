@@ -33,4 +33,4 @@ Resume point: `STATUS.md`. Each step ends with a STATUS.md update, so work can s
    g. audio content: confirm IMAGE.DAT is raw PCM byte order/offset
 5. Binary analysis for gaps: DDPID/DDPMS/PQ record builders in `cue2ddp`.
 6. Write `spec/ddp2.md` field by field.
-7. Clean implementation + validation: `ddpinfo` accepts our output; byte-identical to `cue2ddp` for all experiments.
+7. Clean OCaml implementation + validation: `ddpinfo` accepts our output; byte-identical to `cue2ddp` for all experiments.

@@ -1,0 +1,7 @@
+#!/bin/sh
+# Usage: bin/recs OUTDIR — one line per DDP record: FILE:index|content|
+for f in DDPID:128 DDPMS:128 SD:64 CDTEXT.BIN:0; do
+  name=${f%:*} size=${f#*:}
+  [ -f "$1/$name" ] && [ "$size" -gt 0 ] || continue
+  python3 -c "import sys;d=open(sys.argv[1],'rb').read();[print(f'{sys.argv[2]}:{i//$size}|'+d[i:i+$size].decode('latin1').rstrip()+'|') for i in range(0,len(d),$size)]" "$1/$name" $name
+done

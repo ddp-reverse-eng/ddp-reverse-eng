@@ -1,0 +1,36 @@
+Parsing cue sheet 'input.cue'...
+done.
+=== CUE IMAGE SUMMARY ===
+Cue file : input.cue
+*** Audio data ***
+File name: audio.wav
+File type: Microsoft Wave
+Starts at: 00:00:02.000
+Ends at  : 00:00:12.000
+Length   : 00:00:10.000
+*** PQ Listing ***
+UPC/EAN: 0123456789012
+Trk Idx  Start Time         Track Length       ISRC          PRE DCP 4CH SCMS
+--- ---  -----------------  -----------------  ------------  --- --- --- ----
+ 01  00  00:00:00 (     0)
+ 01  01  00:02:00 (   150)  00:10:00 (   750)  USABC1234567   N   N   N   N
+--- ---  -----------------  -----------------  ------------  --- --- --- ----
+End      00:12:00 (   900)
+Writing DDP fileset...
+Copying audio data
+  from: audio.wav
+  to:   out/IMAGE.DAT
+  900 sectors written (2116800 bytes).
+Writing SD file... 320 bytes written.
+Writing DDPMS file... 256 bytes written.
+Writing DDPID file... 128 bytes written.
+Calculating checksums...
+MD5 checksums written to "CHECKSUM.MD5".
+CRC32 checksums written to "CHECKSUM.TXT".
+Filename           MD5                               CRC32   
+-----------------  --------------------------------  --------
+DDPID              dd89c874714f94418b20feea4d9b2ac6  7C7CF497
+DDPMS              4ddcd3c75e054c6685453524a0973a1a  EA0D5627
+SD                 e6d506c61b61150a572f5290379e47d9  F08A87A6
+IMAGE.DAT          bcebec4d225e28c6899a24a4c5b968b3  5D3DE4A4
+...done.
