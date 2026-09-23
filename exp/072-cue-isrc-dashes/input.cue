@@ -1,0 +1,4 @@
+FILE "audio.wav" WAVE
+  TRACK 01 AUDIO
+    ISRC US-ABC-12-34567
+    INDEX 01 00:00:00

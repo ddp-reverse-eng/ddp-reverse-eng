@@ -276,7 +276,7 @@ let image_cue (cue : Cue.t) (layout : layout) =
 let write ?(warn = fun msg -> prerr_endline ("warning: " ^ msg))
     ?(master_id = "") ?(with_cdtext = false) ?(with_cue = false) ~cue_path ~dir
     () =
-  let cue = Cue.parse cue_path in
+  let cue = Cue.parse ~warn cue_path in
   let relative file =
     if Filename.is_relative file then
       Filename.concat (Filename.dirname cue_path) file

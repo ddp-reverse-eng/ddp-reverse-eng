@@ -1,0 +1,5 @@
+input.cue:1: warning: command ignored: 'file'
+input.cue:2: warning: command ignored: 'track'
+input.cue:3: warning: command ignored: 'index'
+input.cue:3: error: no TRACK command found
+Parsing cue sheet 'input.cue'...

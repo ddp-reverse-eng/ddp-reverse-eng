@@ -1,0 +1,5 @@
+FILE "audio.wav" WAVE
+  TRACK 1 AUDIO
+    INDEX 1 0:00:00
+  TRACK 2 AUDIO
+    INDEX 1 0:10:00

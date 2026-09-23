@@ -34,19 +34,16 @@ let fail ~path ~line fmt =
 
 (** A quoted argument runs to the last double quote of the line, so it may
     contain unescaped quotes. *)
-let argument rest =
-  match (String.index_opt rest '"', String.rindex_opt rest '"') with
-  | Some first, Some last when last > first ->
-      String.sub rest (first + 1) (last - first - 1)
-  | _ -> (
-      match String.split_on_char ' ' (String.trim rest) with
-      | word :: _ -> word
-      | [] -> "")
-
 let words rest =
   String.split_on_char ' ' rest
   |> List.concat_map (String.split_on_char '\t')
   |> List.filter (( <> ) "")
+
+let argument rest =
+  match (String.index_opt rest '"', String.rindex_opt rest '"') with
+  | Some first, Some last when last > first ->
+      String.sub rest (first + 1) (last - first - 1)
+  | _ -> ( match words rest with word :: _ -> word | [] -> "")
 
 let frames_of_time ~path ~line time =
   let frames =
@@ -68,7 +65,7 @@ let set_text text command value =
 let parse_flags ~path ~line rest =
   List.fold_left
     (fun flags word ->
-      match word with
+      match String.uppercase_ascii word with
       | "PRE" -> { flags with pre = true }
       | "DCP" -> { flags with dcp = true }
       | "4CH" -> { flags with four_channel = true }
@@ -78,17 +75,41 @@ let parse_flags ~path ~line rest =
 
 let split_command line =
   let line = String.trim line in
-  match String.index_opt line ' ' with
+  let space = String.index_opt line ' ' and tab = String.index_opt line '\t' in
+  match
+    match (space, tab) with
+    | Some s, Some t -> Some (min s t)
+    | Some i, None | None, Some i -> Some i
+    | None, None -> None
+  with
   | Some i ->
       ( String.uppercase_ascii (String.sub line 0 i),
         String.sub line (i + 1) (String.length line - i - 1) )
   | None -> (String.uppercase_ascii line, "")
 
-let parse path =
-  let lines =
-    In_channel.with_open_bin path In_channel.input_all
-    |> String.split_on_char '\n'
+let known_commands =
+  [
+    "CATALOG";
+    "CDTEXTFILE";
+    "FILE";
+    "TITLE";
+    "PERFORMER";
+    "SONGWRITER";
+    "TRACK";
+    "ISRC";
+    "FLAGS";
+    "INDEX";
+  ]
+
+let parse ~warn path =
+  let contents = In_channel.with_open_bin path In_channel.input_all in
+  let bom = "\xEF\xBB\xBF" in
+  let contents =
+    if String.starts_with ~prefix:bom contents then
+      String.sub contents 3 (String.length contents - 3)
+    else contents
   in
+  let lines = String.split_on_char '\n' contents in
   let disc =
     ref
       {
@@ -130,7 +151,7 @@ let parse path =
       | "FILE", None ->
           if !disc.file <> "" then fail ~path ~line "only one FILE is supported";
           let file_type =
-            match List.rev (words rest) with
+            match List.rev_map String.uppercase_ascii (words rest) with
             | "WAVE" :: _ -> `Wave
             | "BINARY" :: _ -> `Binary
             | "MOTOROLA" :: _ -> `Motorola
@@ -153,7 +174,7 @@ let parse path =
             | [ number; kind ] -> (int_of_string_opt number, kind)
             | _ -> fail ~path ~line "invalid TRACK"
           in
-          if kind <> "AUDIO" then
+          if String.uppercase_ascii kind <> "AUDIO" then
             fail ~path ~line "only AUDIO tracks are supported";
           let number =
             match number with
@@ -195,7 +216,9 @@ let parse path =
               }
       | ("PREGAP" | "POSTGAP"), _ ->
           fail ~path ~line "%s is not supported" command
-      | _ -> fail ~path ~line "unexpected '%s'" command)
+      | _ when List.mem command known_commands ->
+          fail ~path ~line "%s is not allowed here" command
+      | _ -> warn (Printf.sprintf "%s:%d: ignored '%s'" path line command))
     lines;
   finish_track ();
   if !disc.tracks = [] then fail ~path ~line:(List.length lines) "no tracks";

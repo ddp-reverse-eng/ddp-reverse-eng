@@ -97,10 +97,18 @@ Raw 16-bit little-endian stereo PCM, the wav data copied as-is [001]. BINARY inp
 - Chunks may come in any order and unknown chunks are skipped [045][046]. A RIFF size of 0 is refused [055].
 - The data size must be whole stereo frames (multiple of 4), for WAVE and BINARY alike [047][056][059]; missing data chunk refused [054].
 
+## Cue sheet syntax (cue2ddp)
+
+- Accepted: CRLF line ends [060], tabs and repeated spaces [062], blank lines and trailing whitespace [068], REM lines anywhere [066], an unquoted FILE name [067], one-digit track, index and minute numbers [071].
+- A quoted argument runs to the last double quote of the line, so it may contain quotes [063]; `TITLE ""` is an empty string [064]; an unquoted argument is its first word only [073].
+- Commands must be uppercase: lowercase commands are ignored, leaving no TRACK [061]. Lowercase flags are dropped with a warning, so the master loses them [069]. Unknown commands such as COMPOSER are ignored with a warning [070].
+- Refused: a UTF-8 BOM [065], an ISRC with dashes [072], PREGAP and POSTGAP [074][075], CATALOG inside a track [076].
+
 ## Writer extensions (OCaml writer only)
 
 Where cue2ddp refuses an input that converts to 16-bit stereo without changing any sample, the OCaml writer converts it and must produce the same fileset as the equivalent 16-bit stereo input (`EXPECT` in the experiment):
 extensible headers [044], mono duplicated to both channels with a warning [048]→[057], 8-bit [053]→[058], 24/32-bit integer and 32/64-bit float whose samples are all exactly 16-bit [049][051]. A single inexact sample refuses the whole file [050]. Sample rates other than 44.1 kHz, more than two channels and compressed formats are refused [052].
+Cue sheets: commands, file types, track modes and flags are case-insensitive [061]→[001], [069]→[077]; a UTF-8 BOM is skipped [065]→[001]. Unknown commands warn and are ignored, as in cue2ddp [070].
 
 ## IMAGE.cue
 

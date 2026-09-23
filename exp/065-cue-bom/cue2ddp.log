@@ -1,0 +1,3 @@
+input.cue:1: warning: command ignored: '﻿FILE'
+input.cue:2: error: missing FILE command before first TRACK command
+Parsing cue sheet 'input.cue'...
