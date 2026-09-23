@@ -22,7 +22,7 @@ opam pin add ddp git+https://github.com/ddp-reverse-eng/ddp-reverse-eng.git --su
 opam pin add ddp-player git+https://github.com/ddp-reverse-eng/ddp-reverse-eng.git --subpath ocaml   # optional, needs libao
 ```
 
-or, from a checkout: `cd ocaml && dune build`, then use `_build/default/bin/cue2ddp.exe` and `_build/default/bin/ddpread.exe`.
+or, from a checkout, run the top-level `./ddpwrite`, `./ddpread` and `./ddpplay` scripts: they build on demand through `opam exec dune exec`, like liquidsoap's `./liquidsoap`.
 
 ## Writing a master
 
