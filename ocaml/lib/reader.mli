@@ -23,6 +23,35 @@ val load : string -> t
 
 val check : t -> (severity * string) list
 
+type track = {
+  number : int;
+  indexes : (int * int) list;
+      (** (index, time in frames from the image start) *)
+  isrc : string option;
+  flags : Cue.flags;
+  text : Cue.text;  (** from CD-Text, when present *)
+}
+
+val tracks : t -> track list
+
+val track_start : track -> int
+(** The time of the track's index 01. *)
+
+val disc_text : t -> Cue.text
+val catalog : t -> string option
+
+val audio_sectors : t -> int
+(** Length of the program: every audio (D0 DA) stream, joined in DDPMS order. *)
+
+type audio
+
+val open_audio : t -> audio
+val close_audio : audio -> unit
+
+val read_sectors : audio -> sector:int -> Bytes.t -> count:int -> int
+(** Reads up to [count] sectors from [sector] into the start of the buffer;
+    returns how many were read, fewer at the end of the program. *)
+
 val export : t -> wav:string -> unit
 (** Writes the audio from track 1 INDEX 01 to [wav] and a cue sheet beside it,
     as ddpinfo -w does. Every audio (D0 DA) stream is joined in DDPMS order. *)

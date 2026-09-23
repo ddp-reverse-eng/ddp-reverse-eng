@@ -213,67 +213,124 @@ let check t =
       ~encode:(fun i -> Fileset.encode_pq pqs.(i))
       t.pq_raw
 
-(** The program from track 1 INDEX 01, like ddpinfo's export. *)
-let program_start t =
-  match
-    List.find_opt (fun (p : Fileset.pq) -> p.track = "01" && p.index = 1) t.pq
-  with
-  | Some p -> p.time
-  | None -> Diag.error "PQ: track 01 has no index 01"
+type track = {
+  number : int;
+  indexes : (int * int) list;
+  isrc : string option;
+  flags : Cue.flags;
+  text : Cue.text;
+}
 
-let export_cue t ~wav =
-  let start = program_start t in
-  let texts = match t.cdtext with Some d -> Cdtext.decode d | None -> [] in
-  let text n = Option.value (List.assoc_opt n texts) ~default:Cue.no_text in
-  let track_numbers =
+let texts t = match t.cdtext with Some d -> Cdtext.decode d | None -> []
+let text_of texts n = Option.value (List.assoc_opt n texts) ~default:Cue.no_text
+let disc_text t = text_of (texts t) 0
+
+let tracks t =
+  let texts = texts t in
+  let numbers =
     List.sort_uniq compare
       (List.filter_map (fun (p : Fileset.pq) -> int_of_string_opt p.track) t.pq)
     |> List.filter (fun n -> n > 0)
   in
-  let track number =
-    let packets =
-      List.filter
-        (fun (p : Fileset.pq) -> int_of_string_opt p.track = Some number)
-        t.pq
-    in
-    let isrc =
-      List.find_map
-        (fun (p : Fileset.pq) -> if p.isrc = "" then None else Some p.isrc)
-        packets
-    in
-    let flags =
-      match packets with
-      | p :: _ ->
-          Option.value
-            (Fileset.flags_of_control p.control)
-            ~default:Cue.no_flags
-      | [] -> Cue.no_flags
-    in
-    {
-      Cue.number;
-      isrc;
-      flags;
-      text = text number;
-      indexes =
-        List.filter_map
-          (fun (p : Fileset.pq) ->
-            if p.time < start then None
-            else Some (p.index, { Cue.file = 0; time = p.time - start }))
-          packets;
-    }
+  List.map
+    (fun number ->
+      let packets =
+        List.filter
+          (fun (p : Fileset.pq) -> int_of_string_opt p.track = Some number)
+          t.pq
+      in
+      {
+        number;
+        indexes = List.map (fun (p : Fileset.pq) -> (p.index, p.time)) packets;
+        isrc =
+          List.find_map
+            (fun (p : Fileset.pq) -> if p.isrc = "" then None else Some p.isrc)
+            packets;
+        flags =
+          (match packets with
+          | p :: _ ->
+              Option.value
+                (Fileset.flags_of_control p.control)
+                ~default:Cue.no_flags
+          | [] -> Cue.no_flags);
+        text = text_of texts number;
+      })
+    numbers
+
+let track_start track =
+  match List.assoc_opt 1 track.indexes with
+  | Some time -> time
+  | None -> Diag.error "PQ: track %02d has no index 01" track.number
+
+let catalog t =
+  match t.pq with
+  | first :: _ when first.upc <> "" -> Some first.upc
+  | _ -> if t.id.upc = "" then None else Some t.id.upc
+
+type audio = { streams : (In_channel.t * int) list  (** channel, sectors *) }
+
+let open_audio t =
+  {
+    streams =
+      List.map
+        (fun (s : Fileset.stream) ->
+          (In_channel.open_bin (Filename.concat t.dir s.name), s.length))
+        (audio_streams t.streams);
+  }
+
+let close_audio audio =
+  List.iter (fun (ic, _) -> In_channel.close ic) audio.streams
+
+let read_sectors audio ~sector buffer ~count =
+  let rec read sector position count = function
+    | _ when count = 0 -> position
+    | [] -> position
+    | (_, length) :: rest when sector >= length ->
+        read (sector - length) position count rest
+    | (ic, length) :: rest ->
+        let n = min count (length - sector) in
+        In_channel.seek ic (Int64.of_int (sector * Cd.sector_size));
+        (match
+           In_channel.really_input ic buffer
+             (position * Cd.sector_size)
+             (n * Cd.sector_size)
+         with
+        | Some () -> ()
+        | None -> Diag.error "an audio file is shorter than DDPMS says");
+        read 0 (position + n) (count - n) rest
   in
-  let catalog =
-    match t.pq with
-    | first :: _ when first.upc <> "" -> Some first.upc
-    | _ -> if t.id.upc = "" then None else Some t.id.upc
-  in
+  read sector 0 count audio.streams
+
+(** The program from track 1 INDEX 01, like ddpinfo's export. *)
+let program_start t =
+  match tracks t with
+  | first :: _ -> track_start first
+  | [] -> Diag.error "PQ: no tracks"
+
+let export_cue t ~wav =
+  let start = program_start t in
   Cue.to_string
     {
-      catalog;
+      catalog = catalog t;
       cdtext_file = None;
       files = [ { path = Filename.basename wav; file_type = `Wave } ];
-      text = text 0;
-      tracks = List.map track track_numbers;
+      text = disc_text t;
+      tracks =
+        List.map
+          (fun track ->
+            {
+              Cue.number = track.number;
+              isrc = track.isrc;
+              flags = track.flags;
+              text = track.text;
+              indexes =
+                List.filter_map
+                  (fun (i, time) ->
+                    if time < start then None
+                    else Some (i, { Cue.file = 0; time = time - start }))
+                  track.indexes;
+            })
+          (tracks t);
     }
 
 let wave_header data_length =
@@ -295,29 +352,26 @@ let wave_header data_length =
   Bytes.to_string header
 
 let export t ~wav =
-  let start = program_start t in
-  let length = (audio_sectors t - start) * Cd.sector_size in
-  Out_channel.with_open_bin wav (fun oc ->
-      Out_channel.output_string oc (wave_header length);
-      let skip = ref (start * Cd.sector_size) in
-      List.iter
-        (fun (s : Fileset.stream) ->
-          In_channel.with_open_bin (Filename.concat t.dir s.name) (fun ic ->
-              let size = s.length * Cd.sector_size in
-              let from = min !skip size in
-              skip := !skip - from;
-              In_channel.seek ic (Int64.of_int from);
-              let buffer = Bytes.create 65536 in
-              let rec copy remaining =
-                if remaining > 0 then (
-                  let n = In_channel.input ic buffer 0 (min remaining 65536) in
-                  if n = 0 then
-                    Diag.error "%s is shorter than DDPMS says" s.name;
-                  Out_channel.output oc buffer 0 n;
-                  copy (remaining - n))
-              in
-              copy (size - from)))
-        (audio_streams t.streams));
+  let start = program_start t and total = audio_sectors t in
+  let audio = open_audio t in
+  Fun.protect
+    ~finally:(fun () -> close_audio audio)
+    (fun () ->
+      Out_channel.with_open_bin wav (fun oc ->
+          Out_channel.output_string oc
+            (wave_header ((total - start) * Cd.sector_size));
+          let block = 32 in
+          let buffer = Bytes.create (block * Cd.sector_size) in
+          let rec copy sector =
+            if sector < total then (
+              let count = min block (total - sector) in
+              let read = read_sectors audio ~sector buffer ~count in
+              if read < count then
+                Diag.error "the audio is shorter than DDPMS says";
+              Out_channel.output oc buffer 0 (count * Cd.sector_size);
+              copy (sector + count))
+          in
+          copy start));
   let cue = Filename.remove_extension wav ^ ".cue" in
   Out_channel.with_open_bin cue (fun oc ->
       Out_channel.output_string oc (export_cue t ~wav))
