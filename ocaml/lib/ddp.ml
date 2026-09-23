@@ -89,24 +89,22 @@ let validate_track ~next_start ((t : Cue.track), indexes) =
 
 let layout ~warn (cue : Cue.t) (audio : Audio.t) =
   Option.iter (check_ean ~warn) cue.catalog;
+  List.iter
+    (fun (t : Cue.track) ->
+      if not (List.mem_assoc 1 t.indexes) then
+        error "track %02d: INDEX 01 is required" t.number)
+    cue.tracks;
   let first = List.hd cue.tracks in
   let pregap =
-    match first.indexes with
-    | (_, 0) :: _ ->
-        if List.mem_assoc 0 first.indexes then 0 else default_pregap
-    | (_, f) :: _ ->
+    match snd (List.hd first.indexes) with
+    | 0 -> if List.mem_assoc 0 first.indexes then 0 else default_pregap
+    | f ->
         error "first index in first track must be at 00:00:00, found frame %d" f
-    | [] -> error "track 01: INDEX 01 is required"
   in
   let sectors =
     pregap + ((Audio.output_length audio + sector_size - 1) / sector_size)
   in
   let tracks = absolute_indexes ~pregap cue.tracks in
-  List.iter
-    (fun ((t : Cue.track), indexes) ->
-      if not (List.mem_assoc 1 indexes) then
-        error "track %02d: INDEX 01 is required" t.number)
-    tracks;
   (* A track's minimum length runs from its INDEX 01 to the next track's INDEX 01. *)
   let starts =
     List.map (fun (_, indexes) -> List.assoc 1 indexes) (List.tl tracks)
