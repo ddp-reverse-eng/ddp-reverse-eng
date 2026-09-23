@@ -2,7 +2,7 @@
 # Usage: bin/exp [--inputs] exp/NNN-name
 # The directory holds input.cue and run.args: "FRAMES [cue2ddp options...]",
 # and optionally audio.variant naming a bin/mkwav-variant variant.
-# Generates the audio the cue references (audio.wav, raw audio.bin, byte-swapped
+# Generates the audio the cue references (audio.wav, raw audio.bin, big-endian
 # audio.mot), then rebuilds out/ with cue2ddp and logs its output.
 # With --inputs, only generates the audio.
 set -e
@@ -17,14 +17,13 @@ if [ -f "$dir/audio.variant" ]; then
 else
   "$root/bin/mkwav" "$dir/audio.wav" "$frames"
 fi
-if grep -q audio.bin "$dir/input.cue"; then
-  tail -c +45 "$dir/audio.wav" > "$dir/audio.bin"
-  # audio.trailing: extra bytes appended to audio.bin, e.g. half a sample frame
-  [ ! -f "$dir/audio.trailing" ] || cat "$dir/audio.trailing" >> "$dir/audio.bin"
-fi
-if grep -q audio.mot "$dir/input.cue"; then
-  tail -c +45 "$dir/audio.wav" | python3 -c "import sys,array;a=array.array('H',sys.stdin.buffer.read());a.byteswap();sys.stdout.buffer.write(a.tobytes())" > "$dir/audio.mot"
-fi
+for raw in bin mot; do
+  if grep -q "audio.$raw" "$dir/input.cue"; then
+    "$root/bin/mkwav" "$dir/audio.$raw" "$frames"
+    # audio.trailing: extra bytes appended to the raw file, e.g. half a sample frame
+    [ ! -f "$dir/audio.trailing" ] || cat "$dir/audio.trailing" >> "$dir/audio.$raw"
+  fi
+done
 $inputs_only && exit 0
 rm -rf "$dir/out" && mkdir "$dir/out"
 cd "$dir" && "$root/bin/ddp" cue2ddp "$@" input.cue out > cue2ddp.log
