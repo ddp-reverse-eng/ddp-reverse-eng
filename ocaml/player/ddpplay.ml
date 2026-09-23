@@ -353,7 +353,7 @@ let () =
          one" );
       ( "--driver",
         Arg.Set_string driver,
-        "NAME libao driver, e.g. pulse, alsa, null" );
+        "NAME libao driver (default: alsa when available), e.g. pulse, null" );
     ]
     (fun arg -> positional := arg :: !positional)
     usage;
@@ -362,9 +362,18 @@ let () =
       Sys.catch_break true;
       try
         let reader = Reader.load dir in
+        (* libao's pulse driver glitches under PipeWire; its alsa driver reaches
+           the same server through ALSA's default device without trouble. *)
         let driver =
-          if !driver = "" then Ao.get_default_driver ()
-          else Ao.find_driver !driver
+          if !driver <> "" then Ao.find_driver !driver
+          else
+            match
+              List.find_opt
+                (fun d -> Ao.driver_short_name d = "alsa")
+                Ao.drivers
+            with
+            | Some alsa -> alsa
+            | None -> Ao.get_default_driver ()
         in
         let open_device options =
           Ao.open_live ~bits:16 ~rate:44100 ~channels:2
