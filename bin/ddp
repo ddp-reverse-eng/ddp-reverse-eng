@@ -1,12 +1,21 @@
 #!/bin/sh
 # Usage: bin/ddp <cue2ddp|ddpinfo|cdtinfo> [args...]
-# muvm drops the guest's stdout, so output and exit code travel through files.
+# muvm drops the guest's stdout and parses flags like --help itself, so
+# arguments (one per line), output and exit code all travel through files.
 root=$(cd "$(dirname "$0")/.." && pwd)
 tool=$root/tools/ddptools-1.1/$1; shift
 tmp=$(mktemp -d "$root/.run.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT
-muvm -- sh -c 'cd "$1" && t=$2 && d=$3 && shift 3 && "$t" "$@" > "$d/out" 2>&1; echo $? > "$d/rc"' \
-    sh "$PWD" "$tool" "$tmp" "$@" >/dev/null 2>&1
-cat "$tmp/out"
+printf '%s\n' "$@" > "$tmp/args"
+# muvm occasionally drops the command (e.g. while a previous VM shuts down), so retry.
+for attempt in 1 2 3; do
+  muvm -- sh -c 'cd "$1" && t=$2 && d=$3 && set -- &&
+    while IFS= read -r a; do set -- "$@" "$a"; done < "$d/args" &&
+    "$t" "$@" > "$d/out" 2>&1; echo $? > "$d/rc"' \
+    sh "$PWD" "$tool" "$tmp" >/dev/null 2>&1
+  [ -f "$tmp/rc" ] && break
+  sleep 2
+done
 rc=$(cat "$tmp/rc" 2>/dev/null) || { echo "bin/ddp: muvm did not run the tool" >&2; exit 127; }
+cat "$tmp/out"
 exit "$rc"
