@@ -6,9 +6,9 @@ spec=open('spec/ddp2.md').read()
 def table(sec):
     body=spec.split('## '+sec)[1].split('\n## ')[0]
     return [(int(m[1]),int(m[2]),m[3]) for m in re.finditer(r'^\| (\d+) \| (\d+) \| ([\w-]+) \|',body,re.M)]
-for sec,size,f,rec,checks in [('DDPID',128,'exp/007-master-id/out/DDPID',0,{'DDPID':'DDP 2.00','MID':'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijkl','TYPE':'CD'}),
-    ('DDPMS',128,'exp/011-cdtext-cue/out/DDPMS',2,{'DST':'D0','DSL':'    1650','CDM':'DA','SSM':'7','SCR':'1','PRE2':' 150','SIZ':' 17','DSI':'IMAGE.DAT        '}),
-    ('SD (PQ descriptor)',64,'exp/005-isrc-upc/out/SD',0,{'SPV':'VVVS','Tk':'00','A-Time':'  000000','C1':'01','UPC':'0123456789012'})]:
+for sec,size,f,rec,checks in [('3. DDPID: identifier',128,'exp/007-master-id/out/DDPID',0,{'DDPID':'DDP 2.00','MID':'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijkl','TYPE':'CD'}),
+    ('4. DDPMS: map stream',128,'exp/011-cdtext-cue/out/DDPMS',2,{'DST':'D0','DSL':'    1650','CDM':'DA','SSM':'7','SCR':'1','PRE2':' 150','SIZ':' 17','DSI':'IMAGE.DAT        '}),
+    ('5. PQ descriptor',64,'exp/005-isrc-upc/out/SD',0,{'SPV':'VVVS','Tk':'00','A-Time':'  000000','C1':'01','UPC':'0123456789012'})]:
     t=table(sec); off=0
     for o,l,n in t: assert o==off,(sec,n,o,off); off+=l
     assert off==size,(sec,off)
