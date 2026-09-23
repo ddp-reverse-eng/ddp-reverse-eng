@@ -1,6 +1,6 @@
 # Status
 
-Current step: **phase 2, step 12 (OCaml DDP reader)**. Steps 8-11 done. Waiting on the user's HOFA image to confirm CD-Text and other writers' field values.
+Current step: **phase 2 done** (steps 8-13). Tools: `ddpwrite` (cue2ddp-compatible writer), `ddpread` (check/export), `ddpplay` (console player, package ddp-player). CI in .github/workflows/ci.yml (4.14 and 5). Next: whatever the user picks; open questions are in spec N11.
 
 Tools: `bin/exp exp/NNN-name` runs one experiment (folder holds input.cue + run.args); `bin/recs OUTDIR` prints records one per line for diffing; `bin/compare` diffs the OCaml writer against every experiment; `bin/checkspec` checks the spec tables against real output; `bin/ddp` runs any ddptools binary through muvm + FEX (16k-page host).
 Fresh checkout: `bin/fetch-tools` first.
@@ -21,3 +21,4 @@ Fresh checkout: `bin/fetch-tools` first.
 - 2026-09-23: step 9: multi-FILE cue sheets (Cue.files, index positions per file, paths resolved in Cue). Exp 085-090 with single-file references (`audio.split`, `mkwav from=`). compare: 371 files, 29 rejections.
 - 2026-09-23: step 10: COMPOSER/ARRANGER/MESSAGE -> CD-Text 0x83-0x85, checked with cdtinfo and by round trip through cue2ddp CDTEXTFILE (091/092). compare: 380 files, 29 rejections.
 - 2026-09-23: step 11: reader oracle (`oracle/craft.py`): DDPID text at 93/95 per ddpinfo (Sonoris sample misreads), multi-D0 unsupported by ddpinfo export, SSM/SCR values tolerated, export drops track 1 pregap.
+- 2026-09-23: step 13: opam packages ddp and ddp-player, GitHub Actions CI. UPC-A accepted as EAN-13 (035->093). Reader exposes tracks and audio access. `ddpplay` player with headless key test (`bin/check-player`).
