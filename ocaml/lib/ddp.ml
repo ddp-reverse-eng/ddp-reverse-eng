@@ -25,6 +25,9 @@ type layout = {
   pregap : int;  (** silent sectors prepended to the audio *)
   first_track_start : int;  (** track 1 INDEX 01, in sectors *)
   sectors : int;
+  tracks : (Cue.track * (int * int) list) list;
+      (** each track's (index, time) pairs, times in frames from the start of
+          IMAGE.DAT *)
   pq : pq list;
 }
 
@@ -132,7 +135,7 @@ let layout ~warn (cue : Cue.t) (audio : Audio.t) =
     @ [ lead_out; lead_out ]
   in
   let first_track_start = List.assoc 1 (snd (List.hd tracks)) in
-  { pregap; first_track_start; sectors; pq }
+  { pregap; first_track_start; sectors; tracks; pq }
 
 let record size values =
   try Record.make size values
@@ -242,7 +245,7 @@ let text_lines indent (t : Cue.text) =
     ]
 
 (** CDRWin cue sheet for IMAGE.DAT, with absolute index times. *)
-let image_cue (cue : Cue.t) layout =
+let image_cue (cue : Cue.t) (layout : layout) =
   let flags (f : Cue.flags) =
     List.filter_map
       (fun (set, name) -> if set then Some name else None)
@@ -267,8 +270,7 @@ let image_cue (cue : Cue.t) layout =
     (Option.to_list (Option.map (Printf.sprintf "CATALOG %s\n") cue.catalog)
     @ text_lines "" cue.text
     @ [ "FILE \"IMAGE.DAT\" BINARY\n" ]
-    @ List.concat_map track (absolute_indexes ~pregap:layout.pregap cue.tracks)
-    )
+    @ List.concat_map track layout.tracks)
 
 (** Writes the fileset for [cue_path] into [dir]. *)
 let write ?(warn = fun msg -> prerr_endline ("warning: " ^ msg))
