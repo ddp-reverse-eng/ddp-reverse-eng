@@ -1,5 +1,5 @@
-(** CDRWin cue sheets, restricted to what a DDP audio master needs: one audio
-    file, audio tracks, indexes, ISRC, flags, catalog and CD-Text. *)
+(** CDRWin cue sheets, restricted to what a DDP audio master needs: audio files,
+    audio tracks, indexes, ISRC, flags, catalog and CD-Text. *)
 
 type flags = { pre : bool; dcp : bool; four_channel : bool; scms : bool }
 
@@ -9,22 +9,27 @@ type text = {
   songwriter : string option;
 }
 
+type position = {
+  file : int;  (** position of the FILE in [t.files] *)
+  time : int;  (** frames from the start of that file *)
+}
+
 type track = {
   number : int;
   isrc : string option;
   flags : flags;
-  indexes : (int * int) list;
-      (** (index number, frame offset in the audio file), in cue order *)
+  indexes : (int * position) list;
+      (** (index number, position), in cue order *)
   text : text;
 }
 
 type file_type = [ `Wave | `Binary | `Motorola ]
+type file = { path : string; file_type : file_type }
 
 type t = {
   catalog : string option;
-  cdtext_file : string option;  (** as written in the cue, not resolved *)
-  file : string;  (** as written in the cue, not resolved *)
-  file_type : file_type;
+  cdtext_file : string option;  (** resolved against the cue's directory *)
+  files : file list;  (** in cue order, resolved against the cue's directory *)
   text : text;
   tracks : track list;  (** numbered from 1 without gaps *)
 }

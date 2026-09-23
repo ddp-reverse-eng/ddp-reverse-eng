@@ -118,6 +118,7 @@ Where cue2ddp refuses an input that converts to 16-bit stereo without changing a
 extensible headers [044], mono duplicated to both channels with a warning [048]→[057], 8-bit [053]→[058], 24/32-bit integer and 32/64-bit float whose samples are all exactly 16-bit [049][051]. A single inexact sample refuses the whole file [050]. Sample rates other than 44.1 kHz, more than two channels and compressed formats are refused [052].
 Cue sheets: commands, file types, track modes and flags are case-insensitive [061]→[001], [069]→[077]; a UTF-8 BOM is skipped [065]→[001]. Unknown commands warn and are ignored, as in cue2ddp [070].
 Limits: no cue line length limit [080]; a disc past 99:59:74 [084] or CD-Text needing more than 256 packs [081] is refused instead of written corrupt; wrong CD-Text CRCs in a CDTEXTFILE warn [082].
+Multiple FILE commands (cue2ddp refuses them [038]): files are joined in cue order into one IMAGE.DAT, and each INDEX time counts from the start of the FILE preceding it, including a FILE between a track's indexes as EAC writes [085]→[086], [087]→[003], mixed file types [088]→[002]. Every file but the last must be a whole number of sectors, since a join inside a sector would put later indexes off the frame grid [089]. An index at or past the end of its own file is refused [090].
 Experiment markers: `EXPECT` (must equal the named experiment's output), `ACCEPT` (accepted beyond cue2ddp, no reference), `REFUSE` (refused where cue2ddp writes a broken fileset).
 
 ## IMAGE.cue

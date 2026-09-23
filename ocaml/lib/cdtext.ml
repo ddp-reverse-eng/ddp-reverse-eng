@@ -123,11 +123,14 @@ let of_file ~warn path =
   let bad_crc =
     List.init (String.length data / pack_size) Fun.id
     |> List.filter (fun i ->
-           let pack = Bytes.of_string (String.sub data (i * pack_size) pack_size) in
-           crc16 (Bytes.sub pack 0 16) <> Bytes.get_uint16_be pack 16)
+        let pack =
+          Bytes.of_string (String.sub data (i * pack_size) pack_size)
+        in
+        crc16 (Bytes.sub pack 0 16) <> Bytes.get_uint16_be pack 16)
   in
   if bad_crc <> [] then
     warn
-      (Printf.sprintf "%s: %d CD-Text pack(s) with a wrong CRC, first is pack %d"
-         path (List.length bad_crc) (List.hd bad_crc));
+      (Printf.sprintf
+         "%s: %d CD-Text pack(s) with a wrong CRC, first is pack %d" path
+         (List.length bad_crc) (List.hd bad_crc));
   data

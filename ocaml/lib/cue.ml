@@ -6,22 +6,27 @@ type text = {
   songwriter : string option;
 }
 
+type position = {
+  file : int;  (** position of the FILE in [t.files] *)
+  time : int;  (** frames from the start of that file *)
+}
+
 type track = {
   number : int;
   isrc : string option;
   flags : flags;
-  indexes : (int * int) list;
-      (** (index number, frame offset in the audio file), in cue order *)
+  indexes : (int * position) list;
+      (** (index number, position), in cue order *)
   text : text;
 }
 
 type file_type = [ `Wave | `Binary | `Motorola ]
+type file = { path : string; file_type : file_type }
 
 type t = {
   catalog : string option;
   cdtext_file : string option;
-  file : string;
-  file_type : file_type;
+  files : file list;
   text : text;
   tracks : track list;
 }
@@ -32,13 +37,13 @@ let no_text = { title = None; performer = None; songwriter = None }
 let fail ~path ~line fmt =
   Printf.ksprintf (fun msg -> Diag.error "%s:%d: %s" path line msg) fmt
 
-(** A quoted argument runs to the last double quote of the line, so it may
-    contain unescaped quotes. *)
 let words rest =
   String.split_on_char ' ' rest
   |> List.concat_map (String.split_on_char '\t')
   |> List.filter (( <> ) "")
 
+(** A quoted argument runs to the last double quote of the line, so it may
+    contain unescaped quotes. *)
 let argument rest =
   match (String.index_opt rest '"', String.rindex_opt rest '"') with
   | Some first, Some last when last > first ->
@@ -110,13 +115,17 @@ let parse ~warn path =
     else contents
   in
   let lines = String.split_on_char '\n' contents in
+  let resolve file =
+    if Filename.is_relative file then
+      Filename.concat (Filename.dirname path) file
+    else file
+  in
   let disc =
     ref
       {
         catalog = None;
         cdtext_file = None;
-        file = "";
-        file_type = `Wave;
+        files = [];
         text = no_text;
         tracks = [];
       }
@@ -147,9 +156,8 @@ let parse ~warn path =
       | ("" | "REM"), _ -> ()
       | "CATALOG", None -> disc := { !disc with catalog = Some (argument rest) }
       | "CDTEXTFILE", None ->
-          disc := { !disc with cdtext_file = Some (argument rest) }
-      | "FILE", None ->
-          if !disc.file <> "" then fail ~path ~line "only one FILE is supported";
+          disc := { !disc with cdtext_file = Some (resolve (argument rest)) }
+      | "FILE", _ ->
           let file_type =
             match List.rev_map String.uppercase_ascii (words rest) with
             | "WAVE" :: _ -> `Wave
@@ -158,7 +166,12 @@ let parse ~warn path =
             | kind :: _ -> fail ~path ~line "unsupported file type '%s'" kind
             | [] -> fail ~path ~line "missing file type"
           in
-          disc := { !disc with file = argument rest; file_type }
+          disc :=
+            {
+              !disc with
+              files =
+                !disc.files @ [ { path = resolve (argument rest); file_type } ];
+            }
       | ("TITLE" | "PERFORMER" | "SONGWRITER"), None ->
           disc :=
             { !disc with text = set_text !disc.text command (argument rest) }
@@ -168,7 +181,7 @@ let parse ~warn path =
               { track with text = set_text track.text command (argument rest) }
       | "TRACK", _ ->
           finish_track ();
-          if !disc.file = "" then fail ~path ~line "TRACK before FILE";
+          if !disc.files = [] then fail ~path ~line "TRACK before FILE";
           let number, kind =
             match words rest with
             | [ number; kind ] -> (int_of_string_opt number, kind)
@@ -212,7 +225,12 @@ let parse ~warn path =
               {
                 track with
                 indexes =
-                  (index, frames_of_time ~path ~line time) :: track.indexes;
+                  ( index,
+                    {
+                      file = List.length !disc.files - 1;
+                      time = frames_of_time ~path ~line time;
+                    } )
+                  :: track.indexes;
               }
       | ("PREGAP" | "POSTGAP"), _ ->
           fail ~path ~line "%s is not supported" command

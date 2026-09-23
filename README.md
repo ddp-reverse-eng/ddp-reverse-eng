@@ -7,9 +7,9 @@ DDP® is a trademark of DCA, Inc. This project is not affiliated with or endorse
 ## Status
 
 - `spec/ddp2.md`: every byte of DDPID, DDPMS, SD (PQ descriptor), IMAGE.DAT and CDTEXT.BIN as written by `cue2ddp` 1.1, plus its validation rules. Each fact cites the experiment that shows it.
-- `ocaml/`: a `cue2ddp`-compatible writer. On all 33 experiments it produces output byte-identical to `cue2ddp`, and it rejects the same 13 invalid inputs.
+- `ocaml/`: a `cue2ddp`-compatible writer. It produces output byte-identical to `cue2ddp` on every experiment `cue2ddp` accepts, and rejects what it rejects, except where `spec/ddp2.md` documents a deliberate difference (lossless audio conversion, multiple files, refusing inputs `cue2ddp` would write corrupt).
 
-Only what `cue2ddp` can produce is covered: one audio stream, Red Book audio, CD-Text block 0 in ISO 8859-1.
+Output is what `cue2ddp` produces: one audio stream, Red Book audio, CD-Text block 0 in ISO 8859-1.
 
 ## Using the writer
 
@@ -25,7 +25,7 @@ dune build
 - `-t`: include CD-Text, from the cue's TITLE/PERFORMER/SONGWRITER or a `CDTEXTFILE`
 - `-c`: also write IMAGE.cue, a cue sheet for IMAGE.DAT
 
-The cue sheet names one WAVE (44.1 kHz, 16-bit, stereo), BINARY or MOTOROLA file holding the whole program.
+The cue sheet names one or more WAVE, BINARY or MOTOROLA files, joined in order into the program. WAVE files must be 44.1 kHz; mono, 8-bit, 24/32-bit and float files are converted only when no sample changes, and refused otherwise. Every file but the last must end on a CD frame boundary.
 
 ## Testing
 

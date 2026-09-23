@@ -39,11 +39,17 @@ let control (flags : Cue.flags) =
   in
   Printf.sprintf "%X%c" nibble (if flags.scms then 'S' else '1')
 
-(** Tracks with absolute index times, track 1 always starting with index 00. *)
-let absolute_indexes ~pregap (tracks : Cue.track list) =
+(** Tracks with index times in frames from the start of IMAGE.DAT, track 1
+    always starting with index 00; [starts] holds each file's first frame. *)
+let absolute_indexes ~pregap ~starts (tracks : Cue.track list) =
   List.map
     (fun (t : Cue.track) ->
-      let indexes = List.map (fun (i, f) -> (i, f + pregap)) t.indexes in
+      let indexes =
+        List.map
+          (fun (i, (p : Cue.position)) ->
+            (i, pregap + starts.(p.file) + p.time))
+          t.indexes
+      in
       let indexes =
         if t.number = 1 && pregap > 0 then (0, 0) :: indexes else indexes
       in
@@ -64,7 +70,7 @@ let check_ean ~warn code =
   if (10 - (sum mod 10)) mod 10 <> digit 12 then
     warn ("UPC/EAN check digit is wrong: " ^ code)
 
-let validate_track ~end_of_disc ~next_start ((t : Cue.track), indexes) =
+let validate_track ~next_start ((t : Cue.track), indexes) =
   if t.flags.dcp && t.flags.scms then
     error "track %02d: DCP and SCMS are mutually exclusive" t.number;
   Option.iter
@@ -84,18 +90,27 @@ let validate_track ~end_of_disc ~next_start ((t : Cue.track), indexes) =
   in
   if not (ascending indexes) then
     error "track %02d: indexes must be consecutive and increasing" t.number;
-  List.iter
-    (fun (i, time) ->
-      if time >= end_of_disc then
-        error "track %02d: INDEX %02d is past the end of the audio" t.number i)
-    indexes;
   let start = List.assoc 1 indexes in
   if next_start - start < 4 * frames_per_second then
     error "track %02d is shorter than 4 seconds" t.number;
   if t.number = 1 && start < default_pregap then
     error "first track's pregap is shorter than 2 seconds"
 
-let layout ~warn (cue : Cue.t) (audio : Audio.t) =
+(** Each file's length in sectors. Only the last may end mid-sector: joining at
+    any other point would shift every later index off the frame grid. *)
+let file_sectors (files : (Cue.file * Audio.t) list) =
+  let count = List.length files in
+  List.mapi
+    (fun n ((file : Cue.file), audio) ->
+      let length = Audio.output_length audio in
+      if n < count - 1 && length mod sector_size <> 0 then
+        error "%s does not end on a CD frame boundary (a multiple of %d bytes)"
+          file.path sector_size;
+      (length + sector_size - 1) / sector_size)
+    files
+  |> Array.of_list
+
+let layout ~warn (cue : Cue.t) files =
   Option.iter (check_ean ~warn) cue.catalog;
   List.iter
     (fun (t : Cue.track) ->
@@ -105,24 +120,37 @@ let layout ~warn (cue : Cue.t) (audio : Audio.t) =
   let first = List.hd cue.tracks in
   let pregap =
     match snd (List.hd first.indexes) with
-    | 0 -> if List.mem_assoc 0 first.indexes then 0 else default_pregap
-    | f ->
-        error "first index in first track must be at 00:00:00, found frame %d" f
+    | { file = 0; time = 0 } ->
+        if List.mem_assoc 0 first.indexes then 0 else default_pregap
+    | _ ->
+        error "first index in first track must be at 00:00:00 of the first FILE"
   in
-  let sectors =
-    pregap + ((Audio.output_length audio + sector_size - 1) / sector_size)
-  in
+  let lengths = file_sectors files in
+  List.iter
+    (fun (t : Cue.track) ->
+      List.iter
+        (fun (i, (p : Cue.position)) ->
+          if p.time >= lengths.(p.file) then
+            error "track %02d: INDEX %02d is past the end of %s" t.number i
+              (fst (List.nth files p.file)).path)
+        t.indexes)
+    cue.tracks;
+  let starts = Array.make (Array.length lengths) 0 in
+  for n = 1 to Array.length lengths - 1 do
+    starts.(n) <- starts.(n - 1) + lengths.(n - 1)
+  done;
+  let sectors = pregap + Array.fold_left ( + ) 0 lengths in
   if sectors > Cd.max_frames + 1 then
     error "disc is %s long, longer than the 99:59:74 CD addresses can reach"
       (Cd.format_msf ~separator:":" sectors);
-  let tracks = absolute_indexes ~pregap cue.tracks in
+  let tracks = absolute_indexes ~pregap ~starts cue.tracks in
   (* A track's minimum length runs from its INDEX 01 to the next track's INDEX 01. *)
   let starts =
     List.map (fun (_, indexes) -> List.assoc 1 indexes) (List.tl tracks)
     @ [ sectors ]
   in
   List.iter2
-    (fun track next_start -> validate_track ~end_of_disc:sectors ~next_start track)
+    (fun track next_start -> validate_track ~next_start track)
     tracks starts;
   let upc = Option.value cue.catalog ~default:"" in
   let entry ?(control = "01") ?(isrc = "") ?(upc = "") track index time =
@@ -191,12 +219,18 @@ let write_file path contents =
   Out_channel.with_open_bin path (fun oc ->
       Out_channel.output_string oc contents)
 
-let write_image ~dir ~pregap audio =
+let write_image ~dir ~pregap audios =
   Out_channel.with_open_bin (Filename.concat dir "IMAGE.DAT") (fun oc ->
       Out_channel.output_string oc (String.make (pregap * sector_size) '\000');
-      Audio.iter_pcm16 audio (fun buffer length ->
-          Out_channel.output oc buffer 0 length);
-      let tail = Audio.output_length audio mod sector_size in
+      List.iter
+        (fun audio ->
+          Audio.iter_pcm16 audio (fun buffer length ->
+              Out_channel.output oc buffer 0 length))
+        audios;
+      let tail =
+        List.fold_left (fun n a -> n + Audio.output_length a) 0 audios
+        mod sector_size
+      in
       if tail > 0 then
         Out_channel.output_string oc (String.make (sector_size - tail) '\000'))
 
@@ -285,18 +319,17 @@ let write ?(warn = fun msg -> prerr_endline ("warning: " ^ msg))
     ?(master_id = "") ?(with_cdtext = false) ?(with_cue = false) ~cue_path ~dir
     () =
   let cue = Cue.parse ~warn cue_path in
-  let relative file =
-    if Filename.is_relative file then
-      Filename.concat (Filename.dirname cue_path) file
-    else file
+  let files =
+    List.map
+      (fun (f : Cue.file) -> (f, Audio.of_file ~warn f.file_type f.path))
+      cue.files
   in
-  let audio = Audio.of_file ~warn cue.file_type (relative cue.file) in
-  let layout = layout ~warn cue audio in
+  let layout = layout ~warn cue files in
   let cdtext =
     if not with_cdtext then ""
     else
       match cue.cdtext_file with
-      | Some file -> Cdtext.of_file ~warn (relative file)
+      | Some file -> Cdtext.of_file ~warn file
       | None -> Cdtext.encode ~disc:cue.text ~tracks:cue.tracks
   in
   let path name = Filename.concat dir name in
@@ -327,7 +360,7 @@ let write ?(warn = fun msg -> prerr_endline ("warning: " ^ msg))
       ]
   in
   if not (Sys.file_exists dir) then Sys.mkdir dir 0o755;
-  write_image ~dir ~pregap:layout.pregap audio;
+  write_image ~dir ~pregap:layout.pregap (List.map snd files);
   if cdtext <> "" then write_file (path "CDTEXT.BIN") cdtext;
   write_file (path "SD") sd;
   write_file (path "DDPMS") (String.concat "" map);

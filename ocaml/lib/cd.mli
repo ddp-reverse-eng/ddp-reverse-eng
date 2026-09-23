@@ -3,8 +3,8 @@
 val frames_per_second : int
 val sector_size : int
 
-(** 99:59:74, the last address a two-digit minute can express. *)
 val max_frames : int
+(** 99:59:74, the last address a two-digit minute can express. *)
 
 val of_msf : minutes:int -> seconds:int -> frames:int -> int option
 (** Frame count of a minutes:seconds:frames time, [None] when out of range. *)
