@@ -272,13 +272,6 @@ let image_cue (cue : Cue.t) layout =
     @ List.concat_map track (absolute_indexes ~pregap:layout.pregap cue.tracks)
     )
 
-let read_cdtext_file path =
-  let data = In_channel.with_open_bin path In_channel.input_all in
-  if data = "" || String.length data mod Cdtext.pack_size <> 0 then
-    error "%s: CD-Text file size must be a multiple of %d bytes" path
-      Cdtext.pack_size;
-  data
-
 (** Writes the fileset for [cue_path] into [dir]. *)
 let write ?(warn = fun msg -> prerr_endline ("warning: " ^ msg))
     ?(master_id = "") ?(with_cdtext = false) ?(with_cue = false) ~cue_path ~dir
@@ -301,7 +294,7 @@ let write ?(warn = fun msg -> prerr_endline ("warning: " ^ msg))
     if not with_cdtext then ""
     else
       match cue.cdtext_file with
-      | Some file -> read_cdtext_file (relative file)
+      | Some file -> Cdtext.of_file (relative file)
       | None -> Cdtext.encode ~disc:cue.text ~tracks:cue.tracks
   in
   let path name = Filename.concat dir name in

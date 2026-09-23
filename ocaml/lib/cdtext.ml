@@ -111,3 +111,10 @@ let encode ~(disc : Cue.text) ~(tracks : Cue.track list) =
          (fun sequence (kind, ((track, char_position), payload)) ->
            pack ~kind ~track ~sequence ~char_position payload)
          all)
+
+let of_file path =
+  let data = In_channel.with_open_bin path In_channel.input_all in
+  if data = "" || String.length data mod pack_size <> 0 then
+    Diag.error "%s: CD-Text file size must be a multiple of %d bytes" path
+      pack_size;
+  data
