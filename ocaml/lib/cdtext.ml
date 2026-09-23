@@ -51,14 +51,18 @@ let payloads strings =
       Bytes.blit text start payload 0 (min payload_size (length - start));
       (owners.(start), payload))
 
-let text_kinds : (int * (Cue.text -> string option)) list =
+let text_kinds :
+    (int
+    * (Cue.text -> string option)
+    * (Cue.text -> string option -> Cue.text))
+    list =
   [
-    (0x80, fun t -> t.title);
-    (0x81, fun t -> t.performer);
-    (0x82, fun t -> t.songwriter);
-    (0x83, fun t -> t.composer);
-    (0x84, fun t -> t.arranger);
-    (0x85, fun t -> t.message);
+    (0x80, (fun t -> t.title), fun t v -> { t with title = v });
+    (0x81, (fun t -> t.performer), fun t v -> { t with performer = v });
+    (0x82, (fun t -> t.songwriter), fun t v -> { t with songwriter = v });
+    (0x83, (fun t -> t.composer), fun t v -> { t with composer = v });
+    (0x84, (fun t -> t.arranger), fun t v -> { t with arranger = v });
+    (0x85, (fun t -> t.message), fun t v -> { t with message = v });
   ]
 
 (** Size information: character set, track range, pack count per kind, last
@@ -80,7 +84,7 @@ let size_info ~first_track ~last_track ~counts ~last_sequence =
 let encode ~(disc : Cue.text) ~(tracks : Cue.track list) =
   let groups =
     List.filter_map
-      (fun (kind, field) ->
+      (fun (kind, field, _) ->
         let strings =
           (0, field disc)
           :: List.map (fun (t : Cue.track) -> (t.number, field t.text)) tracks
@@ -118,22 +122,77 @@ let encode ~(disc : Cue.text) ~(tracks : Cue.track list) =
            pack ~kind ~track ~sequence ~char_position payload)
          all)
 
+let packs data =
+  List.init
+    (String.length data / pack_size)
+    (fun i -> Bytes.of_string (String.sub data (i * pack_size) pack_size))
+
+let bad_crc_packs data =
+  List.filteri
+    (fun _ pack -> crc16 (Bytes.sub pack 0 16) <> Bytes.get_uint16_be pack 16)
+    (packs data)
+  |> List.length
+
+let first_bad_crc data =
+  let rec find i = function
+    | [] -> None
+    | pack :: rest ->
+        if crc16 (Bytes.sub pack 0 16) <> Bytes.get_uint16_be pack 16 then
+          Some i
+        else find (i + 1) rest
+  in
+  find 0 (packs data)
+
 let of_file ~warn path =
   let data = In_channel.with_open_bin path In_channel.input_all in
   if data = "" || String.length data mod pack_size <> 0 then
     Diag.error "%s: CD-Text file size must be a multiple of %d bytes" path
       pack_size;
-  let bad_crc =
-    List.init (String.length data / pack_size) Fun.id
-    |> List.filter (fun i ->
-        let pack =
-          Bytes.of_string (String.sub data (i * pack_size) pack_size)
-        in
-        crc16 (Bytes.sub pack 0 16) <> Bytes.get_uint16_be pack 16)
-  in
-  if bad_crc <> [] then
-    warn
-      (Printf.sprintf
-         "%s: %d CD-Text pack(s) with a wrong CRC, first is pack %d" path
-         (List.length bad_crc) (List.hd bad_crc));
+  Option.iter
+    (fun first ->
+      warn
+        (Printf.sprintf
+           "%s: %d CD-Text pack(s) with a wrong CRC, first is pack %d" path
+           (bad_crc_packs data) first))
+    (first_bad_crc data);
   data
+
+(** Block 0 text: a TAB string repeats the previous track's string. *)
+let decode data =
+  let block0 =
+    List.filter (fun p -> (Bytes.get_uint8 p 3 lsr 4) land 7 = 0) (packs data)
+  in
+  let last_track =
+    match
+      List.filter
+        (fun p -> Bytes.get_uint8 p 0 = 0x8f && Bytes.get_uint8 p 1 = 0)
+        block0
+    with
+    | info :: _ -> Bytes.get_uint8 info 6
+    | [] -> 0
+  in
+  let texts = Array.make (last_track + 1) Cue.no_text in
+  List.iter
+    (fun (kind, _, set) ->
+      match List.filter (fun p -> Bytes.get_uint8 p 0 = kind) block0 with
+      | [] -> ()
+      | first :: _ as kind_packs ->
+          let text =
+            String.concat ""
+              (List.map (fun p -> Bytes.sub_string p 4 payload_size) kind_packs)
+          in
+          let previous = ref None in
+          List.iteri
+            (fun n s ->
+              let track = Bytes.get_uint8 first 1 + n in
+              if track <= last_track then (
+                let value =
+                  if s = "\t" then !previous
+                  else if s = "" then None
+                  else Some s
+                in
+                previous := value;
+                texts.(track) <- set texts.(track) value))
+            (String.split_on_char '\000' text))
+    text_kinds;
+  Array.to_list (Array.mapi (fun track text -> (track, text)) texts)

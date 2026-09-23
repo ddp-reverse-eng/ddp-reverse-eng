@@ -3,7 +3,8 @@
 experiment, optionally altered into something cue2ddp never writes, then
 records how ddpinfo reads and exports them.
 
-Usage: oracle/craft.py [CASE...]   (needs bin/ddp, i.e. the ddptools)
+Usage: oracle/craft.py [--build-only] [CASE...]
+Without --build-only it needs bin/ddp, i.e. the ddptools.
 """
 import hashlib, os, shutil, subprocess, sys
 
@@ -14,8 +15,13 @@ def base_fileset(dest, exp):
     base_exp = os.path.join(root, "exp", exp)
     subprocess.run([os.path.join(root, "bin", "exp"), "--inputs", base_exp], check=True)
     options = open(os.path.join(base_exp, "run.args")).read().split()[1:]
-    tool = os.path.join(root, "ocaml", "_build", "default", "bin", "cue2ddp.exe")
-    subprocess.run(["dune", "build"], cwd=os.path.join(root, "ocaml"), check=True)
+    # CUE2DDP names a prebuilt writer, as under dune test where dune cannot nest.
+    tool = os.environ.get("CUE2DDP")
+    if tool:
+        tool = os.path.abspath(tool)
+    else:
+        tool = os.path.join(root, "ocaml", "_build", "default", "bin", "cue2ddp.exe")
+        subprocess.run(["dune", "build"], cwd=os.path.join(root, "ocaml"), check=True)
     subprocess.run([tool, *options, "input.cue", dest], cwd=base_exp, check=True)
     for f in ("CHECKSUM.MD5", "CHECKSUM.TXT"):
         os.remove(os.path.join(dest, f))
@@ -66,7 +72,8 @@ for value in ("01", "11", "21", "31", "81", "91", "A1", "B1", "0S"):
     cases["control-" + value] = set_control(value.encode())
 base = {"export-full": "025-embed-cue-full"}
 
-only = sys.argv[1:]
+build_only = "--build-only" in sys.argv
+only = [a for a in sys.argv[1:] if a != "--build-only"]
 for name, craft in cases.items():
     if only and name not in only:
         continue
@@ -75,6 +82,8 @@ for name, craft in cases.items():
     os.makedirs(case, exist_ok=True)
     base_fileset(os.path.join(case, "in"), base.get(name, "002-two-tracks"))
     craft(os.path.join(case, "in"))
+    if build_only:
+        continue
     ddp = os.path.join(root, "bin", "ddp")
     with open(os.path.join(case, "ddpinfo-e.txt"), "w") as out:
         subprocess.run([ddp, "ddpinfo", "-e", "in"], cwd=case, stdout=out, stderr=subprocess.STDOUT)

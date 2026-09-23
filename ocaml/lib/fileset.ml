@@ -137,11 +137,18 @@ let decode_id data =
   if String.length data <> F.size then
     Diag.error "DDPID: %d bytes, expected %d" (String.length data) F.size;
   expect ~what:"DDPID level" F.level data "DDP 2.00";
-  let user_text = Record.get F.user_text data in
+  (* HOFA and Sonoris put the length one byte later than ddpinfo reads it. *)
+  let digits o =
+    String.for_all (fun c -> c >= '0' && c <= '9') (String.sub data o 2)
+  in
+  let length_at, text_at =
+    if data.[93] = ' ' && digits 94 then (94, 96) else (93, 95)
+  in
   let user_text =
-    match int_of_string_opt (field F.user_text_length data) with
-    | Some n when n <= String.length user_text -> String.sub user_text 0 n
-    | _ -> String.trim user_text
+    let text = String.sub data text_at (F.size - text_at) in
+    match int_of_string_opt (String.trim (String.sub data length_at 2)) with
+    | Some n when n <= String.length text -> String.sub text 0 n
+    | _ -> String.trim text
   in
   { upc = field F.upc data; master_id = field F.master_id data; user_text }
 

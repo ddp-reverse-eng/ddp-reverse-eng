@@ -11,3 +11,4 @@ _build/
 audio.bin
 audio.mot
 oracle/*/in/
+oracle/*/ours.*

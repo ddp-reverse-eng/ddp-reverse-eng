@@ -54,25 +54,31 @@ let lines path =
 (** Entries as (file name, expected checksum) from cue2ddp's two formats. *)
 let entries ~dir =
   let path name = Filename.concat dir name in
+  let md5_files =
+    Sys.readdir dir |> Array.to_list
+    |> List.filter (fun f ->
+        String.lowercase_ascii (Filename.extension f) = ".md5")
+    |> List.sort compare
+  in
   let md5 =
-    if Sys.file_exists (path md5_file) then
-      List.filter_map
-        (fun line ->
-          match String.index_opt line ' ' with
-          | Some i ->
-              let name =
-                String.trim
-                  (String.sub line (i + 1) (String.length line - i - 1))
-              in
-              let name =
-                if String.starts_with ~prefix:"*" name then
-                  String.sub name 1 (String.length name - 1)
-                else name
-              in
-              Some (`Md5, name, String.lowercase_ascii (String.sub line 0 i))
-          | None -> None)
-        (lines (path md5_file))
-    else []
+    md5_files
+    |> List.concat_map (fun md5_file ->
+        List.filter_map
+          (fun line ->
+            match String.index_opt line ' ' with
+            | Some i ->
+                let name =
+                  String.trim
+                    (String.sub line (i + 1) (String.length line - i - 1))
+                in
+                let name =
+                  if String.starts_with ~prefix:"*" name then
+                    String.sub name 1 (String.length name - 1)
+                  else name
+                in
+                Some (`Md5, name, String.lowercase_ascii (String.sub line 0 i))
+            | None -> None)
+          (lines (path md5_file)))
   in
   let crc32 =
     if Sys.file_exists (path crc32_file_name) then

@@ -1,0 +1,27 @@
+#!/bin/sh
+# Usage: bin/check-oracle
+# Rebuilds every oracle fileset (no ddptools needed) and requires ddpread's
+# export to equal ddpinfo's: same cue sheet and same PCM. Cases where ddpinfo
+# reported an error are skipped, since its export is not a reference there.
+root=$(cd "$(dirname "$0")/.." && pwd)
+reader=${DDPREAD:+$(realpath "$DDPREAD")}
+if [ -z "$reader" ]; then
+  (cd "$root/ocaml" && dune build 2>&1) || exit 1
+  reader=$root/ocaml/_build/default/bin/ddpread.exe
+fi
+"$root/oracle/craft.py" --build-only 2>/dev/null || exit 1
+checked=0 failed=0 skipped=0
+for case in "$root"/oracle/*/; do
+  case=${case%/}; name=$(basename "$case")
+  if grep -q '^Error' "$case/ddpinfo-w.txt" || [ ! -f "$case/export.cue" ]; then
+    skipped=$((skipped + 1)); continue
+  fi
+  "$reader" --export "$case/ours.wav" "$case/in" >/dev/null 2>&1 || { echo "FAIL $name: export failed"; failed=$((failed + 1)); continue; }
+  sed 's/"ours.wav"/"export.wav"/' "$case/ours.cue" | cmp -s - "$case/export.cue" || { echo "FAIL $name: cue differs"; failed=$((failed + 1)); }
+  pcm=$(tail -c +45 "$case/ours.wav" | md5sum | cut -c1-32)
+  [ "$pcm" = "$(cut -c1-32 "$case/export.md5")" ] || { echo "FAIL $name: PCM differs"; failed=$((failed + 1)); }
+  rm -f "$case/ours.wav" "$case/ours.cue"
+  checked=$((checked + 1))
+done
+echo "checked $checked exports against ddpinfo, skipped $skipped, $failed failures"
+[ "$failed" -eq 0 ] && [ "$checked" -gt 0 ]

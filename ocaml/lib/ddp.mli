@@ -3,6 +3,9 @@
 module Cue = Cue
 module Cdtext = Cdtext
 module Audio = Audio
+module Cd = Cd
+module Fileset = Fileset
+module Reader = Reader
 
 exception Error of string
 

@@ -38,6 +38,12 @@ type t = {
   tracks : track list;  (** numbered from 1 without gaps *)
 }
 
+val no_text : text
+(** Every field [None]. *)
+
+val no_flags : flags
+(** Every flag unset. *)
+
 val to_string : t -> string
 (** Renders a cue sheet: CATALOG, CDTEXTFILE, disc text, then each track with
     its text, ISRC, FLAGS and indexes, a FILE line wherever the file changes.

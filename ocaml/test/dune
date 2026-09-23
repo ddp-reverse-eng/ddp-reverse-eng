@@ -1,11 +1,18 @@
-; Byte-for-byte comparison with cue2ddp on every experiment in ../../exp.
-; The experiments live outside the dune project, hence (universe).
+; Byte-for-byte comparison with cue2ddp on every experiment in ../../exp, and
+; ddpread's export against ddpinfo's on every case in ../../oracle. Both live
+; outside the dune project, hence (universe).
 
 (rule
  (alias runtest)
- (deps (universe) %{exe:../bin/cue2ddp.exe})
+ (deps
+  (universe)
+  %{exe:../bin/cue2ddp.exe}
+  %{exe:../bin/ddpread.exe})
  (action
   (setenv
    CUE2DDP
    %{exe:../bin/cue2ddp.exe}
-   (system "../../../../bin/compare"))))
+   (setenv
+    DDPREAD
+    %{exe:../bin/ddpread.exe}
+    (system "../../../../bin/compare && ../../../../bin/check-oracle")))))
