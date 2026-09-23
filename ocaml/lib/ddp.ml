@@ -43,19 +43,22 @@ let absolute_indexes ~pregap ~starts (tracks : Cue.track list) =
       (t, indexes))
     tracks
 
-(** A wrong check digit only warns, as cue2ddp does. *)
-let check_ean ~warn code =
+(** A 12-digit UPC-A becomes the equivalent 13-digit EAN; a wrong check digit
+    only warns, as cue2ddp does. *)
+let normalize_catalog ~warn code =
+  let code = if String.length code = 12 then "0" ^ code else code in
   if
     String.length code <> 13
     || not (String.for_all (fun c -> c >= '0' && c <= '9') code)
-  then error "UPC/EAN must be 13 digits: '%s'" code;
+  then error "UPC/EAN must be 12 or 13 digits: '%s'" code;
   let digit i = Char.code code.[i] - Char.code '0' in
   let sum =
     List.init 12 (fun i -> digit i * if i mod 2 = 0 then 1 else 3)
     |> List.fold_left ( + ) 0
   in
   if (10 - (sum mod 10)) mod 10 <> digit 12 then
-    warn ("UPC/EAN check digit is wrong: " ^ code)
+    warn ("UPC/EAN check digit is wrong: " ^ code);
+  code
 
 let validate_track ~warn ~next_start ((t : Cue.track), indexes) =
   if t.flags.dcp && t.flags.scms then
@@ -104,7 +107,6 @@ let file_sectors (files : (Cue.file * Audio.t) list) =
   |> Array.of_list
 
 let layout ~warn (cue : Cue.t) files =
-  Option.iter (check_ean ~warn) cue.catalog;
   List.iter
     (fun (t : Cue.track) ->
       if not (List.mem_assoc 1 t.indexes) then
@@ -211,6 +213,9 @@ let write ?(warn = fun msg -> prerr_endline ("warning: " ^ msg))
     ?(master_id = "") ?(with_cdtext = false) ?(with_cue = false) ~cue_path ~dir
     () =
   let cue = Cue.parse ~warn cue_path in
+  let cue =
+    { cue with catalog = Option.map (normalize_catalog ~warn) cue.catalog }
+  in
   let files =
     List.map
       (fun (f : Cue.file) -> (f, Audio.of_file ~warn f.file_type f.path))

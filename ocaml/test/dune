@@ -4,10 +4,7 @@
 
 (rule
  (alias runtest)
- (deps
-  (universe)
-  %{exe:../bin/cue2ddp.exe}
-  %{exe:../bin/ddpread.exe})
+ (deps (universe) %{exe:../bin/cue2ddp.exe} %{exe:../bin/ddpread.exe})
  (action
   (setenv
    CUE2DDP

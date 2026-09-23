@@ -72,7 +72,7 @@ One 128-byte record.
 | Offset | Size | Name | Type | Content |
 |--------|------|------|------|---------|
 | 0 | 8 | DDPID | text | Level: `DDP 2.00` |
-| 8 | 13 | UPC | text | Disc UPC/EAN: 13-digit EAN or 12-digit UPC-A; blank when none ([N6](#n6)) |
+| 8 | 13 | UPC | text | Disc UPC/EAN (the media catalog number): 13-digit EAN-13, or 12-digit UPC-A left-aligned; blank when none ([N6](#n6)) |
 | 21 | 8 | MSS | text | Map stream start; blank |
 | 29 | 8 | MSL | text | Blank. ⚠ Meaning disputed ([N11](#n11)) |
 | 37 | 1 | MED | text | Blank |
@@ -147,7 +147,7 @@ The Q-channel subcode of the program: one 64-byte packet per index, plus lead-in
 | 16 | 2 | C1 | text | Control and ADR, see below |
 | 18 | 2 | C2 | text | Blank |
 | 20 | 12 | ISRC | text | Track ISRC, on the track's first packet; blank otherwise |
-| 32 | 13 | UPC | text | Disc UPC/EAN, on the lead-in packet at least ([N6](#n6)) |
+| 32 | 13 | UPC | text | Disc UPC/EAN as in DDPID, on the lead-in packet at least ([N6](#n6)) |
 | 45 | 19 | TXT | text | Comment; blank |
 
 **C1** is two characters:
@@ -242,7 +242,7 @@ A master that breaks these is not a valid Red Book audio CD, or is refused by th
 | Track length | At least 4 s, from its index `01` to the next track's index `01` (or the lead-out) |
 | Program | Lead-out at most 99:59:74 |
 | Flags | DCP and SCMS exclude each other |
-| UPC/EAN | 13 digits (cue2ddp); HOFA writes a 12-digit UPC-A ([N6](#n6)) |
+| UPC/EAN | 13-digit EAN-13 or 12-digit UPC-A; a UPC-A is the EAN-13 with a leading `0` dropped |
 | ISRC | 12 characters, uppercase letters and digits |
 | Master ID | At most 48 characters |
 | CD-Text | At most 256 packs in the block |
@@ -370,7 +370,7 @@ Two filesets from other software:
 
 | Record | Field | cue2ddp | Sonoris | HOFA |
 |---|---|---|---|---|
-| DDPID | UPC | 13-digit EAN | | 12-digit UPC-A, left-aligned |
+| DDPID | UPC | 13-digit EAN-13 | | a 12-digit UPC-A, left-aligned |
 | DDPID | BK | blank | `O` | blank |
 | DDPID | user text | none | length at 94, text at 96 | length at 94, text at 96 |
 | DDPMS | numbers (DSL, SIZ) | space-padded | zero-padded | zero-padded |
@@ -381,6 +381,8 @@ Two filesets from other software:
 | PQ | UPC | lead-in only | | every packet |
 | PQ | lead-out | twice | twice | twice |
 | checksums | MD5 file | `CHECKSUM.MD5`, LF | `MD5-Checksum.md5` | `MD5_CHECKSUM.MD5`, CRLF |
+
+Both UPC forms name the same catalog number (EAN-13 = `0` + UPC-A), so they very likely coexist. The HOFA sample shows only that HOFA writes a UPC-A as given, not that it always uses 12 digits.
 
 All three agree on CDM `DA`, SSM `7`, PRE2 `150`, C1 `01` for flagless tracks, and the time base. Distillery, an open-source writer, uses SSM `0` (`docs/research.md`).
 
@@ -421,6 +423,7 @@ The writer in `ocaml/` produces cue2ddp's output byte for byte on every experime
   - 24/32-bit integer and float, when every sample is exactly 16-bit [049][051]
 
   One inexact sample refuses the file [050].
+- **UPC-A:** a 12-digit CATALOG is written as the equivalent EAN-13 with a leading `0`, as the cue2ddp manual advises users to do by hand [035]→[093].
 - **Cue syntax:** commands, file types and flags are case-insensitive [061][069]→[077], a BOM is skipped [065], and there's no line length limit [080].
 - **Multiple FILE commands:** the files are joined in order, and each INDEX time counts from its own FILE, including a FILE between a track's indexes as EAC writes [085]→[086][087]→[003][088]→[002]. Every file but the last must end on a sector [089], and an index past the end of its file is refused [090].
 - **CD-Text:** COMPOSER, ARRANGER and MESSAGE become packs 0x83-0x85 [070][091]→[092]. A CDTEXTFILE with bad CRCs gets a warning [082].
