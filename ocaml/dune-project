@@ -22,3 +22,16 @@
   (ocaml
    (>= 4.14))
   dune))
+
+(package
+ (name ddp-player)
+ (synopsis "Console player for DDP 2.00 audio CD masters")
+ (description
+  "Plays a DDP fileset through libao, with the track list, CD-Text, position and play/pause, track skip and seek controls.")
+ (depends
+  (ocaml
+   (>= 4.14))
+  dune
+  (ddp
+   (= :version))
+  ao))

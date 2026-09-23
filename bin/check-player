@@ -1,0 +1,39 @@
+#!/bin/sh
+# Usage: bin/check-player
+# Drives ddpplay headless (libao null driver, keys on stdin) over the fileset of
+# exp/014-three-tracks and checks where each key script stops.
+# CUE2DDP and DDPPLAY name prebuilt executables (dune test sets them).
+root=$(cd "$(dirname "$0")/.." && pwd)
+if [ -n "$DDPPLAY" ]; then
+  writer=$(realpath "$CUE2DDP") player=$(realpath "$DDPPLAY")
+else
+  (cd "$root/ocaml" && dune build 2>&1) || exit 1
+  writer=$root/ocaml/_build/default/bin/cue2ddp.exe
+  player=$root/ocaml/_build/default/player/ddpplay.exe
+fi
+exp=$root/exp/014-three-tracks
+[ -f "$exp/audio.wav" ] || "$root/bin/exp" --inputs "$exp"
+fileset=$(mktemp -d "$root/.run.XXXXXX")
+trap 'rm -rf "$fileset"' EXIT
+(cd "$exp" && "$writer" input.cue "$fileset") || exit 1
+checked=0 failed=0
+# Track starts: 01 at 00:02, 02 at 00:11, 03 at 00:22; the disc ends at 00:30.
+# nffpq seeks past the end, clamps, then p restarts track 03 since it is over 3 s in.
+while IFS='|' read -r keys expected; do
+  got=$(printf '%s' "$keys" | "$player" --driver null "$fileset")
+  checked=$((checked + 1))
+  [ "$got" = "$expected" ] || { echo "FAIL keys '$keys': got '$got', expected '$expected'"; failed=$((failed + 1)); }
+done <<'CASES'
+q|stopped at track 01, 00:00 into it, disc 00:02
+nq|stopped at track 02, 00:00 into it, disc 00:11
+nnnq|stopped at track 03, 00:00 into it, disc 00:22
+nnpq|stopped at track 02, 00:00 into it, disc 00:11
+nffpq|stopped at track 03, 00:00 into it, disc 00:22
+ffq|stopped at track 03, 00:00 into it, disc 00:22
+3bq|stopped at track 02, 00:01 into it, disc 00:12
+9q|stopped at track 01, 00:00 into it, disc 00:02
+bbbq|stopped at track 01, -00:02 into it, disc 00:00
+|stopped at track 03, 00:08 into it, disc 00:30
+CASES
+echo "checked $checked player scripts, $failed failures"
+[ "$failed" -eq 0 ] && [ "$checked" -gt 0 ]

@@ -19,6 +19,7 @@ Requires OCaml ≥ 4.14 and dune; no other dependencies.
 
 ```
 opam pin add ddp git+https://github.com/ddp-reverse-eng/ddp-reverse-eng.git --subpath ocaml
+opam pin add ddp-player git+https://github.com/ddp-reverse-eng/ddp-reverse-eng.git --subpath ocaml   # optional, needs libao
 ```
 
 or, from a checkout: `cd ocaml && dune build`, then use `_build/default/bin/cue2ddp.exe` and `_build/default/bin/ddpread.exe`.
@@ -44,9 +45,27 @@ ddpread --export out.wav DIR      audio from track 1 INDEX 01 plus out.cue, as d
 
 Checks report errors (the fileset breaks the format), warnings (valid but risky) and notes (fields another writer fills differently); the exit status is 1 when there is an error.
 
+## Playing a master
+
+```
+ddpplay [--driver NAME] DIR
+```
+
+A console player (package `ddp-player`, through libao): the track list with CD-Text and lengths, the current position in the track and on the disc, and a progress bar. It starts at track 1 INDEX 01 like a CD player, and shows a pregap as a countdown.
+
+| Key | Action |
+|-----|--------|
+| space | play / pause |
+| → or `n` | next track |
+| ← or `p` | back to the start of the track, or the previous one in its first 3 s |
+| `f` / `b` | forward / back 10 s |
+| ↑ / ↓ | forward / back 1 min |
+| `1`-`9` | jump to a track |
+| `q` | quit |
+
 ## Testing
 
-`dune test` (from `ocaml/`) runs `bin/compare`, which runs the writer on every experiment in `exp/`, compares the result with the recorded `cue2ddp` output and reads it back with `ddpread`, and `bin/check-oracle`, which compares `ddpread`'s export with `ddpinfo`'s. Neither needs the ddptools: test audio is regenerated with python3. The tests need the repository checkout, not only the `ocaml/` package.
+`dune test` (from `ocaml/`) runs `bin/compare`, which runs the writer on every experiment in `exp/`, compares the result with the recorded `cue2ddp` output and reads it back with `ddpread`, and `bin/check-oracle`, which compares `ddpread`'s export with `ddpinfo`'s, and `bin/check-player`, which drives `ddpplay` through libao's null driver. Neither needs the ddptools: test audio is regenerated with python3. The tests need the repository checkout, not only the `ocaml/` package.
 
 ## Repository layout
 

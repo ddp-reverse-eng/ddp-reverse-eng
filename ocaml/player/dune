@@ -1,0 +1,23 @@
+(executable
+ (name ddpplay)
+ (public_name ddpplay)
+ (package ddp-player)
+ (libraries ddp ao unix))
+
+; Key handling, driven headless through libao's null driver.
+
+(rule
+ (alias runtest)
+ (package ddp-player)
+ (deps
+  (universe)
+  %{exe:../bin/cue2ddp.exe}
+  %{exe:ddpplay.exe})
+ (action
+  (setenv
+   CUE2DDP
+   %{exe:../bin/cue2ddp.exe}
+   (setenv
+    DDPPLAY
+    %{exe:ddpplay.exe}
+    (system "../../../../bin/check-player")))))
