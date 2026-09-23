@@ -1,3 +1,11 @@
-(executables
- (names cue2ddp ddpread)
+(executable
+ (name cue2ddp)
+ (public_name ddpwrite)
+ (package ddp)
+ (libraries ddp))
+
+(executable
+ (name ddpread)
+ (public_name ddpread)
+ (package ddp)
  (libraries ddp))

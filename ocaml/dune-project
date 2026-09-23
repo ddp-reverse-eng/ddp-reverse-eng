@@ -1,1 +1,24 @@
 (lang dune 3.0)
+
+(name ddp)
+
+(generate_opam_files true)
+
+(source
+ (github ddp-reverse-eng/ddp-reverse-eng))
+
+(license MIT)
+
+(authors "DDP Reverse Engineer")
+
+(maintainers "DDP Reverse Engineer <ddp-reverse-eng@users.noreply.github.com>")
+
+(package
+ (name ddp)
+ (synopsis "Read and write DDP 2.00 audio CD masters")
+ (description
+  "Writes DDP 2.00 filesets for Red Book audio CD replication from cue sheets, byte-identical to cue2ddp, and reads, checks and exports existing filesets. The format description in spec/ddp2.md comes from black-box reverse engineering.")
+ (depends
+  (ocaml
+   (>= 4.14))
+  dune))

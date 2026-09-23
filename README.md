@@ -1,5 +1,7 @@
 # ddp-reverse
 
+[![CI](https://github.com/ddp-reverse-eng/ddp-reverse-eng/actions/workflows/ci.yml/badge.svg)](https://github.com/ddp-reverse-eng/ddp-reverse-eng/actions/workflows/ci.yml)
+
 An open specification and an MIT-licensed OCaml writer for DDP 2.00 audio CD masters (the Disc Description Protocol filesets that CD plants accept for replication). Both come from black-box reverse engineering of the freely available [DDP Mastering Tools](http://ddp.andreasruge.de/): we run them on our own inputs and study what they write. See [LEGAL.md](LEGAL.md) for why this is lawful.
 
 DDP® is a trademark of DCA, Inc. This project is not affiliated with or endorsed by DCA, Inc.
@@ -11,25 +13,40 @@ DDP® is a trademark of DCA, Inc. This project is not affiliated with or endorse
 
 Output is what `cue2ddp` produces: one audio stream, Red Book audio, CD-Text block 0 in ISO 8859-1.
 
-## Using the writer
+## Install
 
-Requires OCaml ≥ 5.1 and dune; no other dependencies.
+Requires OCaml ≥ 4.14 and dune; no other dependencies.
 
 ```
-cd ocaml
-dune build
-./_build/default/bin/cue2ddp.exe [-m MASTER-ID] [-t] [-c] album.cue out/
+opam pin add ddp git+https://github.com/ddp-reverse-eng/ddp-reverse-eng.git --subpath ocaml
+```
+
+or, from a checkout: `cd ocaml && dune build`, then use `_build/default/bin/cue2ddp.exe` and `_build/default/bin/ddpread.exe`.
+
+## Writing a master
+
+```
+ddpwrite [-m MASTER-ID] [-t] [-c] album.cue out/
 ```
 
 - `-m`: master identifier, up to 48 characters
-- `-t`: include CD-Text, from the cue's TITLE/PERFORMER/SONGWRITER or a `CDTEXTFILE`
+- `-t`: include CD-Text, from the cue's TITLE/PERFORMER/SONGWRITER/COMPOSER/ARRANGER/MESSAGE or a `CDTEXTFILE`
 - `-c`: also write IMAGE.cue, a cue sheet for IMAGE.DAT
 
 The cue sheet names one or more WAVE, BINARY or MOTOROLA files, joined in order into the program. WAVE files must be 44.1 kHz; mono, 8-bit, 24/32-bit and float files are converted only when no sample changes, and refused otherwise. Every file but the last must end on a CD frame boundary.
 
+## Reading a master
+
+```
+ddpread DIR                       summary and checks
+ddpread --export out.wav DIR      audio from track 1 INDEX 01 plus out.cue, as ddpinfo -w
+```
+
+Checks report errors (the fileset breaks the format), warnings (valid but risky) and notes (fields another writer fills differently); the exit status is 1 when there is an error.
+
 ## Testing
 
-`dune test` (from `ocaml/`) or `bin/compare` runs the writer on every experiment in `exp/` and compares the result with the recorded `cue2ddp` output. It needs neither the ddptools nor the audio, which it regenerates.
+`dune test` (from `ocaml/`) runs `bin/compare`, which runs the writer on every experiment in `exp/`, compares the result with the recorded `cue2ddp` output and reads it back with `ddpread`, and `bin/check-oracle`, which compares `ddpread`'s export with `ddpinfo`'s. Neither needs the ddptools: test audio is regenerated with python3. The tests need the repository checkout, not only the `ocaml/` package.
 
 ## Repository layout
 

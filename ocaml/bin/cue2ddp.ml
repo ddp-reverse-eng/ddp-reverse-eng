@@ -1,4 +1,4 @@
-let usage = "cue2ddp [-m master-id] [-t] [-c] CUESHEET DIRECTORY"
+let usage = "ddpwrite [-m master-id] [-t] [-c] CUESHEET DIRECTORY"
 
 let () =
   let master_id = ref ""
