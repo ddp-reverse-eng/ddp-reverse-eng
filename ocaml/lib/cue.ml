@@ -15,7 +15,7 @@ type track = {
   text : text;
 }
 
-type file_type = [ `Wave | `Binary ]
+type file_type = [ `Wave | `Binary | `Motorola ]
 
 type t = {
   catalog : string option;
@@ -106,6 +106,7 @@ let parse path =
             match List.rev (words rest) with
             | "WAVE" :: _ -> `Wave
             | "BINARY" :: _ -> `Binary
+            | "MOTOROLA" :: _ -> `Motorola
             | kind :: _ -> fail ~path ~line "unsupported file type '%s'" kind
             | [] -> fail ~path ~line "missing file type"
           in

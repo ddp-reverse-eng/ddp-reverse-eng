@@ -1,0 +1,3 @@
+FILE "audio.bin" BINARY
+  TRACK 01 AUDIO
+    INDEX 01 00:00:00

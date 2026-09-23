@@ -25,7 +25,12 @@ let record size fields =
 let number offset width n = (offset, width, `Right, string_of_int n)
 let text offset width s = (offset, width, `Left, s)
 
-type audio = { path : string; data_offset : int; data_length : int }
+type audio = {
+  path : string;
+  data_offset : int;
+  data_length : int;
+  big_endian : bool;
+}
 
 (** Locates the PCM data of a 44.1 kHz 16-bit stereo WAVE file. *)
 let wave_audio path =
@@ -46,7 +51,7 @@ let wave_audio path =
         let size = read_u32 () in
         let start = In_channel.pos ic in
         match tag with
-        | "data" -> { path; data_offset = Int64.to_int start; data_length = size }
+        | "data" -> { path; data_offset = Int64.to_int start; data_length = size; big_endian = false }
         | "fmt " ->
             let fmt = Option.get (In_channel.really_input_string ic 16) in
             if
@@ -63,9 +68,14 @@ let wave_audio path =
       in
       chunks ())
 
-let binary_audio path =
+let raw_audio ~big_endian path =
   let data_length = In_channel.with_open_bin path (fun ic -> Int64.to_int (In_channel.length ic)) in
-  { path; data_offset = 0; data_length }
+  { path; data_offset = 0; data_length; big_endian }
+
+let swap_samples buffer length =
+  for i = 0 to (length / 2) - 1 do
+    Bytes.set_uint16_le buffer (2 * i) (Bytes.get_uint16_be buffer (2 * i))
+  done
 
 (** A PQ entry, times in frames from the start of IMAGE.DAT. *)
 type pq = { track : string; index : int; time : int; control : string; isrc : string; upc : string }
@@ -92,13 +102,13 @@ let absolute_indexes ~pregap (tracks : Cue.track list) =
       (t, indexes))
     tracks
 
-let valid_ean code =
-  String.length code = 13
-  && String.for_all (fun c -> c >= '0' && c <= '9') code
-  &&
+(** A wrong check digit only warns, as cue2ddp does. *)
+let check_ean code =
+  if String.length code <> 13 || not (String.for_all (fun c -> c >= '0' && c <= '9') code) then
+    error "UPC/EAN must be 13 digits: '%s'" code;
   let digit i = Char.code code.[i] - Char.code '0' in
   let sum = List.init 12 (fun i -> digit i * if i mod 2 = 0 then 1 else 3) |> List.fold_left ( + ) 0 in
-  (10 - (sum mod 10)) mod 10 = digit 12
+  if (10 - (sum mod 10)) mod 10 <> digit 12 then prerr_endline ("warning: UPC/EAN check digit is wrong: " ^ code)
 
 let validate_track ~next_start ((t : Cue.track), indexes) =
   if t.flags.dcp && t.flags.scms then error "track %02d: DCP and SCMS are mutually exclusive" t.number;
@@ -112,14 +122,12 @@ let validate_track ~next_start ((t : Cue.track), indexes) =
     | _ -> true
   in
   if not (ascending indexes) then error "track %02d: indexes must be consecutive and increasing" t.number;
-  match List.assoc_opt 1 indexes with
-  | None -> error "track %02d: INDEX 01 is required" t.number
-  | Some start ->
-      if next_start - start < 4 * frames_per_second then error "track %02d is shorter than 4 seconds" t.number;
-      if t.number = 1 && start < default_pregap then error "first track's pregap is shorter than 2 seconds"
+  let start = List.assoc 1 indexes in
+  if next_start - start < 4 * frames_per_second then error "track %02d is shorter than 4 seconds" t.number;
+  if t.number = 1 && start < default_pregap then error "first track's pregap is shorter than 2 seconds"
 
 let layout (cue : Cue.t) (audio : audio) =
-  Option.iter (fun c -> if not (valid_ean c) then error "invalid UPC/EAN '%s'" c) cue.catalog;
+  Option.iter check_ean cue.catalog;
   let first = List.hd cue.tracks in
   let pregap =
     match first.indexes with
@@ -129,7 +137,12 @@ let layout (cue : Cue.t) (audio : audio) =
   in
   let sectors = pregap + ((audio.data_length + sector_size - 1) / sector_size) in
   let tracks = absolute_indexes ~pregap cue.tracks in
-  let starts = List.map (fun (_, indexes) -> snd (List.hd indexes)) (List.tl tracks) @ [ sectors ] in
+  List.iter
+    (fun ((t : Cue.track), indexes) ->
+      if not (List.mem_assoc 1 indexes) then error "track %02d: INDEX 01 is required" t.number)
+    tracks;
+  (* A track's minimum length runs from its INDEX 01 to the next track's INDEX 01. *)
+  let starts = List.map (fun (_, indexes) -> List.assoc 1 indexes) (List.tl tracks) @ [ sectors ] in
   List.iter2 (fun track next_start -> validate_track ~next_start track) tracks starts;
   let upc = Option.value cue.catalog ~default:"" in
   let entry ?(control = "01") ?(isrc = "") ?(upc = "") track index time = { track; index; time; control; isrc; upc } in
@@ -176,6 +189,7 @@ let write_image ~dir ~pregap (audio : audio) =
             if remaining > 0 then (
               let n = In_channel.input ic buffer 0 (min remaining (Bytes.length buffer)) in
               if n = 0 then error "%s: audio data is truncated" audio.path;
+              if audio.big_endian then swap_samples buffer n;
               Out_channel.output oc buffer 0 n;
               copy (remaining - n))
           in
@@ -252,7 +266,10 @@ let write ?(master_id = "") ?(with_cdtext = false) ?(with_cue = false) ~cue_path
   let cue = Cue.parse cue_path in
   let relative file = if Filename.is_relative file then Filename.concat (Filename.dirname cue_path) file else file in
   let audio =
-    match cue.file_type with `Wave -> wave_audio (relative cue.file) | `Binary -> binary_audio (relative cue.file)
+    match cue.file_type with
+    | `Wave -> wave_audio (relative cue.file)
+    | `Binary -> raw_audio ~big_endian:false (relative cue.file)
+    | `Motorola -> raw_audio ~big_endian:true (relative cue.file)
   in
   let layout = layout cue audio in
   let cdtext =

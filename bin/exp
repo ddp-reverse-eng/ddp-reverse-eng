@@ -1,12 +1,21 @@
 #!/bin/sh
-# Usage: bin/exp exp/NNN-name
+# Usage: bin/exp [--inputs] exp/NNN-name
 # The directory holds input.cue and run.args: "FRAMES [cue2ddp options...]".
-# Regenerates audio.wav, rebuilds out/, and logs cue2ddp's output.
+# Generates the audio the cue references (audio.wav, raw audio.bin, byte-swapped
+# audio.mot), then rebuilds out/ with cue2ddp and logs its output.
+# With --inputs, only generates the audio.
 set -e
+inputs_only=false
+[ "$1" = --inputs ] && { inputs_only=true; shift; }
 dir=$1
 root=$(cd "$(dirname "$0")/.." && pwd)
 set -- $(cat "$dir/run.args")
 frames=$1; shift
 "$root/bin/mkwav" "$dir/audio.wav" "$frames"
+if grep -q audio.bin "$dir/input.cue"; then tail -c +45 "$dir/audio.wav" > "$dir/audio.bin"; fi
+if grep -q audio.mot "$dir/input.cue"; then
+  tail -c +45 "$dir/audio.wav" | python3 -c "import sys,array;a=array.array('H',sys.stdin.buffer.read());a.byteswap();sys.stdout.buffer.write(a.tobytes())" > "$dir/audio.mot"
+fi
+$inputs_only && exit 0
 rm -rf "$dir/out" && mkdir "$dir/out"
 cd "$dir" && "$root/bin/ddp" cue2ddp "$@" input.cue out > cue2ddp.log

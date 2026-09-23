@@ -6,7 +6,7 @@ SAMPLES stereo samples long.
 Default content is a position pattern: stereo sample i has L = i & 0xffff,
 R = i >> 16, so any byte in an image can be traced back to its source sample.
 """
-import struct, sys, wave
+import array, sys, wave
 
 out, length = sys.argv[1], sys.argv[2].split("+")
 silence = sys.argv[3:] == ["silence"]
@@ -18,4 +18,5 @@ with wave.open(out, "wb") as w:
     if silence:
         w.writeframes(bytes(n * 4))
     else:
-        w.writeframes(b"".join(struct.pack("<HH", i & 0xFFFF, i >> 16) for i in range(n)))
+        # One little-endian 32-bit word per stereo sample puts i & 0xffff in L and i >> 16 in R.
+        w.writeframes(array.array("I", range(n)).tobytes())

@@ -11,7 +11,7 @@ for dir in "$@"; do
   dir=$(cd "$dir" && pwd); name=$(basename "$dir")
   set -- $(cat "$dir/run.args")
   frames=$1; shift
-  [ -f "$dir/audio.wav" ] || "$root/bin/mkwav" "$dir/audio.wav" "$frames"
+  [ -f "$dir/audio.wav" ] || "$root/bin/exp" --inputs "$dir"
   ours=$(mktemp -d)
   if ls "$dir"/REJECTED* >/dev/null 2>&1; then
     if (cd "$dir" && "$tool" "$@" input.cue "$ours" 2>/dev/null); then

@@ -8,7 +8,7 @@ Resume point: `STATUS.md`. Each step ends with a STATUS.md update, so work can s
 
 - Black box first: generate a cue/wav input, run `cue2ddp`, diff the output against a baseline. Change one variable per experiment.
 - Cross-check with `ddpinfo -e` (expert view), which names every field it reads.
-- Disassemble only to settle what diffs leave ambiguous (field names, validation rules, checksums).
+- Black box only: no disassembly (see LEGAL.md). `ddpinfo -e` gave the field names.
 - Spec notes (`spec/ddp2.md`) cite the experiment or address that proves each field. An implementation is written later from the spec alone.
 
 ## Layout
@@ -31,6 +31,6 @@ Resume point: `STATUS.md`. Each step ends with a STATUS.md update, so work can s
    e. CD-Text from cue, then from binary CD-Text file
    f. checksum files (MD5/CRC32)
    g. audio content: confirm IMAGE.DAT is raw PCM byte order/offset
-5. Binary analysis for gaps: DDPID/DDPMS/PQ record builders in `cue2ddp`.
+5. ~~Binary analysis~~: dropped, the project stays black-box (LEGAL.md).
 6. Write `spec/ddp2.md` field by field.
 7. Clean OCaml implementation + validation: `ddpinfo` accepts our output; byte-identical to `cue2ddp` for all experiments.
