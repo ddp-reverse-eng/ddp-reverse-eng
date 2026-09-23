@@ -1,6 +1,8 @@
 module Reader = Ddp.Reader
 
-let usage = "ddp-play [--driver NAME] [--buffer MS] DIRECTORY"
+let usage =
+  "ddp-play [--driver NAME] [--buffer MS] [--output FILE.wav] DIRECTORY"
+
 let chunk_sectors = 16
 let fps = Ddp.Cd.frames_per_second
 
@@ -224,9 +226,24 @@ let attenuate buffer length gain_db =
     Bytes.set_int16_le buffer (2 * i) (Float.to_int (Float.round v))
   done
 
+(** With DDP_PLAY_TRACE=FILE, each chunk's start, read end and play end times
+    are kept in memory and written out when playback stops. *)
+let trace = ref []
+
+let write_trace () =
+  match Sys.getenv_opt "DDP_PLAY_TRACE" with
+  | None -> ()
+  | Some path ->
+      Out_channel.with_open_text path (fun oc ->
+          List.iter
+            (fun (start, read, played) ->
+              Printf.fprintf oc "%.6f %.6f %.6f\n" start read played)
+            (List.rev !trace))
+
 (** Reads and plays chunk after chunk, so the device is never starved by the UI.
 *)
 let feed disc audio device shared =
+  let tracing = Sys.getenv_opt "DDP_PLAY_TRACE" <> None in
   let buffer = Bytes.create (chunk_sectors * Ddp.Cd.sector_size) in
   let rec loop () =
     let next =
@@ -245,9 +262,13 @@ let feed disc audio device shared =
     match next with
     | None -> ()
     | Some (sector, count, gain_db) ->
+        let start = Unix.gettimeofday () in
         let read = Reader.read_sectors audio ~sector buffer ~count in
+        let after_read = Unix.gettimeofday () in
         if gain_db < 0 then attenuate buffer (read * Ddp.Cd.sector_size) gain_db;
         Ao.play device (Bytes.sub_string buffer 0 (read * Ddp.Cd.sector_size));
+        if tracing then
+          trace := (start, after_read, Unix.gettimeofday ()) :: !trace;
         loop ()
   in
   loop ()
@@ -307,7 +328,8 @@ let play reader ~device =
             if not state.quit then ui open_stdin
           in
           ui open_stdin;
-          Thread.join feeder);
+          Thread.join feeder;
+          write_trace ());
       let final = shared.state in
       let i = current disc final.position in
       Printf.printf "stopped at track %02d, %s into it, disc %s\n"
@@ -316,9 +338,15 @@ let play reader ~device =
         (clock final.position))
 
 let () =
-  let driver = ref "" and buffer_ms = ref 500 and positional = ref [] in
+  let driver = ref ""
+  and buffer_ms = ref 500
+  and output = ref ""
+  and positional = ref [] in
   Arg.parse
     [
+      ( "--output",
+        Arg.Set_string output,
+        "FILE.wav play into a WAV file instead of a sound device" );
       ( "--buffer",
         Arg.Set_int buffer_ms,
         "MS device buffer in milliseconds (default 500), for drivers that take \
@@ -344,8 +372,13 @@ let () =
         in
         (* pulse, alsa and oss take buffer_time; other drivers refuse unknown options. *)
         let device =
-          try open_device [ ("buffer_time", string_of_int !buffer_ms) ]
-          with _ -> open_device []
+          if !output <> "" then
+            Ao.open_file ~bits:16 ~rate:44100 ~channels:2
+              ~byte_format:`LITTLE_ENDIAN ~driver:(Ao.find_driver "wav")
+              ~overwrite:true !output
+          else
+            try open_device [ ("buffer_time", string_of_int !buffer_ms) ]
+            with _ -> open_device []
         in
         Fun.protect
           ~finally:(fun () -> Ao.close device)
