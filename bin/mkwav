@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""Usage: mkwav OUT.wav FRAMES [silence]
+"""Usage: mkwav OUT.wav FRAMES[+SAMPLES] [silence]
 
-Writes 44.1 kHz 16-bit stereo audio, FRAMES CD frames (588 samples) long.
+Writes 44.1 kHz 16-bit stereo audio, FRAMES CD frames (588 samples) plus
+SAMPLES stereo samples long.
 Default content is a position pattern: stereo sample i has L = i & 0xffff,
 R = i >> 16, so any byte in an image can be traced back to its source sample.
 """
 import struct, sys, wave
 
-out, frames = sys.argv[1], int(sys.argv[2])
+out, length = sys.argv[1], sys.argv[2].split("+")
 silence = sys.argv[3:] == ["silence"]
-n = frames * 588
+n = int(length[0]) * 588 + (int(length[1]) if len(length) > 1 else 0)
 with wave.open(out, "wb") as w:
     w.setnchannels(2)
     w.setsampwidth(2)

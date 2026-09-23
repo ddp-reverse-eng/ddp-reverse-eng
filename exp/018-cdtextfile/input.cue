@@ -1,0 +1,7 @@
+CDTEXTFILE "in.cdt"
+TITLE "Ignored"
+FILE "audio.wav" WAVE
+  TRACK 01 AUDIO
+    INDEX 01 00:00:00
+  TRACK 02 AUDIO
+    INDEX 01 00:10:00

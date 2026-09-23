@@ -1,0 +1,21 @@
+Error: PQ list: Track 02 is shorter than 4 sec.
+Error: PQ data is not Red Book compatible
+Parsing cue sheet 'input.cue'...
+done.
+=== CUE IMAGE SUMMARY ===
+Cue file : input.cue
+*** Audio data ***
+File name: audio.wav
+File type: Microsoft Wave
+Starts at: 00:00:02.000
+Ends at  : 00:00:16.666
+Length   : 00:00:14.666
+*** PQ Listing ***
+UPC/EAN: 
+Trk Idx  Start Time         Track Length       ISRC          PRE DCP 4CH SCMS
+--- ---  -----------------  -----------------  ------------  --- --- --- ----
+ 01  00  00:00:00 (     0)
+ 01  01  00:02:00 (   150)  00:12:00 (   900)                 N   N   N   N
+ 02  01  00:14:00 (  1050)  00:02:50 (   200)                 N   N   N   N
+--- ---  -----------------  -----------------  ------------  --- --- --- ----
+End      00:16:50 (  1250)

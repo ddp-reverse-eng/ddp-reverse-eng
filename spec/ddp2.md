@@ -12,8 +12,8 @@ Every run with the same input gives byte-identical output [001].
 | DDPMS | 128 per record | map: one record per stream |
 | SD | 64 per record | PQ subcode descriptor |
 | IMAGE.DAT | 2352 per sector | audio |
-| CDTEXT.BIN | ? | with `-t` (not yet examined) |
-| IMAGE.CUE | text | with `-c` (not yet examined); outside the DDP proper |
+| CDTEXT.BIN | 18 per pack | with `-t`; see CD-Text below |
+| IMAGE.cue | text | with `-c`; `FILE "IMAGE.DAT" BINARY` cue sheet, LF line ends. Not in DDPMS, not in checksum files [012] |
 | CHECKSUM.MD5 / CHECKSUM.TXT | text | md5sum-style `hash *NAME`; `[CRC32 Checksum]` INI with `NAME=HEX` uppercase. Not part of DDP. |
 
 ## DDPID
@@ -30,7 +30,7 @@ Every run with the same input gives byte-identical output [001].
 
 ## DDPMS
 
-Common layout (both records seen so far):
+Common layout (all records seen so far):
 
 | Off | Len | Value | Evidence |
 |-----|-----|-------|----------|
@@ -38,13 +38,14 @@ Common layout (both records seen so far):
 | 4 | 2 | `S0` = subcode stream, `D0` = data stream | [001] |
 | 6..? | | spaces | |
 | ?..21 | ≤8 | length, right-aligned: bytes for S0 (= SD size), sectors for D0 (= IMAGE.DAT / 2352) | [001][002][008] |
-| 30 | 8 | `PQ DESCR` (S0 only) | [001] |
+| 30 | ≤8 | subcode stream kind: `PQ DESCR` (SD), `CDTEXT` (CDTEXT.BIN) | [001][011] |
 | 38 | 4 | `DA71` (D0 only), meaning ? | [001] |
 | ?..49 | | D0: sectors of track 1 pregap at the start of IMAGE.DAT (150 by default, 225 with INDEX 00 at 0 and INDEX 01 at 3 s) | [001][009] |
-| 72 | 2 | `17` (meaning ?, same on both records) | [001] |
+| 55 | 2 | `00` on the CDTEXT record only, meaning ? | [011] |
+| 72 | 2 | `17` (meaning ?, same on all records) | [001] |
 | 74 | ≤? | file name | [001] |
 
-Record order: S0 (SD) first, then D0 (IMAGE.DAT).
+Record order: CDTEXT (S0, when present), SD (S0), then IMAGE.DAT (D0) [011].
 
 ## SD (PQ descriptor)
 
@@ -69,15 +70,24 @@ Flags only affect the track's packets, not lead-in or lead-out [006]. Tracks wit
 
 ## IMAGE.DAT
 
-Raw 16-bit little-endian stereo PCM, the wav data copied as-is [001]. If track 1 does not start with INDEX 00, cue2ddp prepends 150 sectors of zeros as a pregap [001]; with INDEX 00 in the file, nothing is added [009]. A wav that is not a whole number of sectors is still written as whole sectors [008] (padding not yet checked).
+Raw 16-bit little-endian stereo PCM, the wav data copied as-is [001]. If track 1 does not start with INDEX 00, cue2ddp prepends 150 sectors of zeros as a pregap [001]; with INDEX 00 in the file, nothing is added [009]. A last partial sector is padded with zeros to 2352 bytes [013].
+
+## CD-Text
+
+CDTEXT.BIN is plain CD-Text: 18-byte packs (type, track, sequence, block/char, 12 text bytes, CRC), no file header [011]. CRC is CRC-16/CCITT (poly 0x1021, init 0) over the first 16 bytes, inverted, big-endian [011]. This is the public MMC/Red Book lead-in format, not DDP-specific.
+Pack types seen: 0x80 title, 0x81 performer, 0x82 songwriter, 0x8f size info [011].
+From the cue: disc and track TITLE/PERFORMER/SONGWRITER, encoded as ISO 8859-1. Without `-t`, TITLE etc. are ignored [017].
+`CDTEXTFILE` is copied byte for byte and overrides TITLE etc. [018]; a file with the common 4-byte length header is rejected [019].
 
 ## Validation rules seen
 
 - DCP and SCMS together on one track: rejected [006].
+- Track shorter than 4 s: rejected [015].
+- Track 1 pregap shorter than 2 s: rejected [016].
+- Other rules from the manual, not tested yet: CATALOG must be 13 digits with a valid EAN check digit; one FILE only; INDEX 01 required per track.
 
 ## Open questions
 
-- DDPID bytes 21..37, 86, 89..127; DDPMS `DA71`, `17`, exact field widths.
+- DDPID bytes 21..37, 86, 89..127; DDPMS `DA71`, `17`, CDTEXT `00`, exact field widths.
 - Why the lead-out packet is written twice.
-- CD-Text (`-t`): CDTEXT.BIN and its DDPMS record. Embedded cue (`-c`).
-- Padding of a partial last sector; a track shorter than 4 s; a pregap under 2 s.
+- Byte order of the pack sequence and 0x8f contents: follow the public CD-Text spec when implementing.

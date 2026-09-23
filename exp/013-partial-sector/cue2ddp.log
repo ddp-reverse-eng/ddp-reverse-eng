@@ -1,0 +1,38 @@
+audio.wav: warning: audio does not end at a CD sector boundary, adding 1952 bytes of silence
+Parsing cue sheet 'input.cue'...
+done.
+=== CUE IMAGE SUMMARY ===
+Cue file : input.cue
+*** Audio data ***
+File name: audio.wav
+File type: Microsoft Wave
+Starts at: 00:00:02.000
+Ends at  : 00:00:12.002
+Length   : 00:00:10.002
+Padding : 00:00:00.011 (1952 bytes)
+*** PQ Listing ***
+UPC/EAN: 
+Trk Idx  Start Time         Track Length       ISRC          PRE DCP 4CH SCMS
+--- ---  -----------------  -----------------  ------------  --- --- --- ----
+ 01  00  00:00:00 (     0)
+ 01  01  00:02:00 (   150)  00:10:01 (   751)                 N   N   N   N
+--- ---  -----------------  -----------------  ------------  --- --- --- ----
+End      00:12:01 (   901)
+Writing DDP fileset...
+Copying audio data
+  from: audio.wav
+  to:   out/IMAGE.DAT
+  901 sectors written (2119152 bytes).
+Writing SD file... 320 bytes written.
+Writing DDPMS file... 256 bytes written.
+Writing DDPID file... 128 bytes written.
+Calculating checksums...
+MD5 checksums written to "CHECKSUM.MD5".
+CRC32 checksums written to "CHECKSUM.TXT".
+Filename           MD5                               CRC32   
+-----------------  --------------------------------  --------
+DDPID              187970110683c92c25bdb82256354780  730DC92D
+DDPMS              ae8f68525f3efdda732d9508531b0cc4  AC145C1D
+SD                 29bceb1a7fb2bd2cc5da45b710c09247  D000EC44
+IMAGE.DAT          b56cd23e532472094171e57281951175  250AE143
+...done.
