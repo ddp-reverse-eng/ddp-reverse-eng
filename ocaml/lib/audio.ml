@@ -164,3 +164,13 @@ let iter_pcm16 t output =
 (** Only float and deeper-than-16-bit samples can fail to convert. *)
 let validate t =
   if t.encoding.float || t.encoding.bits > 16 then iter_pcm16 t (fun _ _ -> ())
+
+let of_file ~warn file_type path =
+  let t =
+    match file_type with
+    | `Wave -> wave ~warn path
+    | `Binary -> raw ~big_endian:false path
+    | `Motorola -> raw ~big_endian:true path
+  in
+  validate t;
+  t

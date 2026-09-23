@@ -282,14 +282,8 @@ let write ?(warn = fun msg -> prerr_endline ("warning: " ^ msg))
       Filename.concat (Filename.dirname cue_path) file
     else file
   in
-  let audio =
-    match cue.file_type with
-    | `Wave -> Audio.wave ~warn (relative cue.file)
-    | `Binary -> Audio.raw ~big_endian:false (relative cue.file)
-    | `Motorola -> Audio.raw ~big_endian:true (relative cue.file)
-  in
+  let audio = Audio.of_file ~warn cue.file_type (relative cue.file) in
   let layout = layout ~warn cue audio in
-  Audio.validate audio;
   let cdtext =
     if not with_cdtext then ""
     else
