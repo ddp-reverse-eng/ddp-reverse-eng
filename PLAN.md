@@ -34,3 +34,17 @@ Resume point: `STATUS.md`. Each step ends with a STATUS.md update, so work can s
 5. ~~Binary analysis~~: dropped, the project stays black-box (LEGAL.md).
 6. Write `spec/ddp2.md` field by field.
 7. Clean OCaml implementation + validation: `ddpinfo` accepts our output; byte-identical to `cue2ddp` for all experiments.
+
+## Phase 2 (agreed 2026-09-23)
+
+Steps run in order; each ends with a commit and a STATUS.md update.
+
+8. Input robustness, black box against cue2ddp, then our writer:
+   a. WAV variants: extensible format, fmt/data order, extra chunks, odd data size, mono, 8/24/32-bit, float, other rates. Our policy: normalize only when lossless (header-only differences, mono duplicated to stereo, deeper samples that are exactly 16-bit), refuse otherwise.
+   b. Cue syntax: CRLF, lowercase commands, tabs, quotes inside titles, empty strings, BOM, REM lines, whitespace variants.
+   c. Limits: > 80 min, 99:59:74, long CD-Text strings, CDTEXTFILE with bad CRC.
+9. Multi-FILE cue sheets (our extension; cue2ddp refuses): files joined into one IMAGE.DAT, INDEX times relative to their file.
+10. Extended CD-Text (composer, arranger, message, genre, disc ID, closed info, UPC/ISRC packs): encode from public CD-Text documentation, check with `cdtinfo` and with `ddpinfo` via CDTEXTFILE; confirm with the HOFA image.
+11. Reader-side oracle: craft DDPID/DDPMS/SD files (user text, MSL, multiple D0 streams) and record how `ddpinfo` parses them.
+12. OCaml DDP reader: parse and validate a fileset against the spec, export cue + wav. Tested by round trip on every experiment, the Sonoris sample and the HOFA image.
+13. opam package and CI running `dune build` and `dune test`.
