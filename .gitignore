@@ -1,0 +1,9 @@
+# Third-party ddptools binaries and manuals, fetched by bin/fetch-tools
+/tools/
+/docs/*.pdf
+/docs/*.html
+# Regenerable experiment data
+*.wav
+IMAGE.DAT
+# bin/ddp scratch directories
+.run.*

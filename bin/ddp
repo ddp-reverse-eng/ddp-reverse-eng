@@ -1,0 +1,12 @@
+#!/bin/sh
+# Usage: bin/ddp <cue2ddp|ddpinfo|cdtinfo> [args...]
+# muvm drops the guest's stdout, so output and exit code travel through files.
+root=$(cd "$(dirname "$0")/.." && pwd)
+tool=$root/tools/ddptools-1.1/$1; shift
+tmp=$(mktemp -d "$root/.run.XXXXXX")
+trap 'rm -rf "$tmp"' EXIT
+muvm -- sh -c 'cd "$1" && t=$2 && d=$3 && shift 3 && "$t" "$@" > "$d/out" 2>&1; echo $? > "$d/rc"' \
+    sh "$PWD" "$tool" "$tmp" "$@" >/dev/null 2>&1
+cat "$tmp/out"
+rc=$(cat "$tmp/rc" 2>/dev/null) || { echo "bin/ddp: muvm did not run the tool" >&2; exit 127; }
+exit "$rc"

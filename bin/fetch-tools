@@ -1,0 +1,8 @@
+#!/bin/sh
+# Downloads ddptools 1.1 (x86_64 Linux) and its manuals; neither is redistributed here.
+set -e
+root=$(cd "$(dirname "$0")/.." && pwd)
+url=http://ddp.andreasruge.de
+mkdir -p "$root/tools" "$root/docs"
+curl -sL "$url/dist/ddptools-1.1-x86_64-elf.tar.gz" | tar xz -C "$root/tools"
+for f in cue2ddp ddpinfo cdtinfo; do curl -sLo "$root/docs/$f.pdf" "$url/$f.pdf"; done
