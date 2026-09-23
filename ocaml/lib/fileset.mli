@@ -31,6 +31,13 @@ type pq = {
 val blank_stream : stream
 (** Every field empty, for building packets. *)
 
+val control_of_flags : Cue.flags -> string
+(** C1: the Q control nibble in hex (PRE=1, DCP=2, 4CH=8) then ADR [1], or [S]
+    for SCMS. *)
+
+val flags_of_control : string -> Cue.flags option
+(** [None] for anything {!control_of_flags} cannot produce. *)
+
 val encode_id : id -> string
 (** @raise Diag.Error when a value does not fit its field. *)
 

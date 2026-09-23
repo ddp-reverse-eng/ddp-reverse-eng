@@ -124,6 +124,67 @@ let known_commands =
     "INDEX";
   ]
 
+let file_type_name = function
+  | `Wave -> "WAVE"
+  | `Binary -> "BINARY"
+  | `Motorola -> "MOTOROLA"
+
+let text_lines indent (t : text) =
+  List.filter_map
+    (fun (command, value) ->
+      Option.map
+        (fun v -> Printf.sprintf "%s%s \"%s\"\n" indent command v)
+        value)
+    [
+      ("TITLE", t.title);
+      ("PERFORMER", t.performer);
+      ("SONGWRITER", t.songwriter);
+      ("COMPOSER", t.composer);
+      ("ARRANGER", t.arranger);
+      ("MESSAGE", t.message);
+    ]
+
+let flag_names (f : flags) =
+  List.filter_map
+    (fun (set, name) -> if set then Some name else None)
+    [
+      (f.pre, "PRE"); (f.dcp, "DCP"); (f.four_channel, "4CH"); (f.scms, "SCMS");
+    ]
+
+let to_string cue =
+  let files = Array.of_list cue.files in
+  let buffer = Buffer.create 1024 in
+  let add = Buffer.add_string buffer in
+  let current = ref (-1) in
+  let file n =
+    if n <> !current then (
+      current := n;
+      add
+        (Printf.sprintf "FILE \"%s\" %s\n" files.(n).path
+           (file_type_name files.(n).file_type)))
+  in
+  Option.iter (fun c -> add ("CATALOG " ^ c ^ "\n")) cue.catalog;
+  Option.iter (fun f -> add ("CDTEXTFILE \"" ^ f ^ "\"\n")) cue.cdtext_file;
+  List.iter add (text_lines "" cue.text);
+  List.iter
+    (fun t ->
+      (match t.indexes with (_, p) :: _ -> file p.file | [] -> ());
+      add (Printf.sprintf "  TRACK %02d AUDIO\n" t.number);
+      List.iter add (text_lines "    " t.text);
+      Option.iter (fun isrc -> add ("    ISRC " ^ isrc ^ "\n")) t.isrc;
+      (match flag_names t.flags with
+      | [] -> ()
+      | names -> add ("    FLAGS " ^ String.concat " " names ^ "\n"));
+      List.iter
+        (fun (i, p) ->
+          file p.file;
+          add
+            (Printf.sprintf "    INDEX %02d %s\n" i
+               (Cd.format_msf ~separator:":" p.time)))
+        t.indexes)
+    cue.tracks;
+  Buffer.contents buffer
+
 let parse ~warn path =
   let contents = In_channel.with_open_bin path In_channel.input_all in
   let bom = "\xEF\xBB\xBF" in

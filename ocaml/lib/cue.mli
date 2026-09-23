@@ -38,6 +38,11 @@ type t = {
   tracks : track list;  (** numbered from 1 without gaps *)
 }
 
+val to_string : t -> string
+(** Renders a cue sheet: CATALOG, CDTEXTFILE, disc text, then each track with
+    its text, ISRC, FLAGS and indexes, a FILE line wherever the file changes.
+    Paths are written as they are in [t]. *)
+
 val parse : warn:(string -> unit) -> string -> t
 (** Unknown commands are reported through [warn] and ignored, as cue2ddp does; a
     UTF-8 BOM is skipped and commands, file types and flags are

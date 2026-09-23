@@ -22,6 +22,28 @@ type pq = {
   upc : string;
 }
 
+let control_of_flags (flags : Cue.flags) =
+  let nibble =
+    (if flags.pre then 1 else 0)
+    lor (if flags.dcp then 2 else 0)
+    lor if flags.four_channel then 8 else 0
+  in
+  Printf.sprintf "%X%c" nibble (if flags.scms then 'S' else '1')
+
+let flags_of_control control =
+  match
+    (String.length control, int_of_string_opt ("0x" ^ String.sub control 0 1))
+  with
+  | 2, Some nibble when control.[1] = '1' || control.[1] = 'S' ->
+      Some
+        {
+          Cue.pre = nibble land 1 <> 0;
+          dcp = nibble land 2 <> 0;
+          four_channel = nibble land 8 <> 0;
+          scms = control.[1] = 'S';
+        }
+  | _ -> None
+
 let blank_stream =
   {
     stream_type = "";

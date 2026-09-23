@@ -23,14 +23,6 @@ type layout = {
   pq : Fileset.pq list;
 }
 
-let control (flags : Cue.flags) =
-  let nibble =
-    (if flags.pre then 1 else 0)
-    lor (if flags.dcp then 2 else 0)
-    lor if flags.four_channel then 8 else 0
-  in
-  Printf.sprintf "%X%c" nibble (if flags.scms then 'S' else '1')
-
 (** Tracks with index times in frames from the start of IMAGE.DAT, track 1
     always starting with index 00; [starts] holds each file's first frame. *)
 let absolute_indexes ~pregap ~starts (tracks : Cue.track list) =
@@ -69,7 +61,8 @@ let validate_track ~warn ~next_start ((t : Cue.track), indexes) =
     warn
       (Printf.sprintf
          "track %02d: 4CH with DCP gives control %s, which ddpinfo rejects"
-         t.number (control t.flags));
+         t.number
+         (Fileset.control_of_flags t.flags));
   Option.iter
     (fun isrc ->
       if
@@ -157,7 +150,9 @@ let layout ~warn (cue : Cue.t) files =
     List.mapi
       (fun n (index, time) ->
         let isrc = if n = 0 then Option.value t.isrc ~default:"" else "" in
-        entry ~control:(control t.flags) ~isrc
+        entry
+          ~control:(Fileset.control_of_flags t.flags)
+          ~isrc
           (Printf.sprintf "%02d" t.number)
           index time)
       indexes
@@ -189,48 +184,24 @@ let write_image ~dir ~pregap audios =
       if tail > 0 then
         Out_channel.output_string oc (String.make (sector_size - tail) '\000'))
 
-let text_lines indent (t : Cue.text) =
-  List.filter_map
-    (fun (command, value) ->
-      Option.map
-        (fun v -> Printf.sprintf "%s%s \"%s\"\n" indent command v)
-        value)
-    [
-      ("TITLE", t.title);
-      ("PERFORMER", t.performer);
-      ("SONGWRITER", t.songwriter);
-      ("COMPOSER", t.composer);
-      ("ARRANGER", t.arranger);
-      ("MESSAGE", t.message);
-    ]
-
-(** CDRWin cue sheet for IMAGE.DAT, with absolute index times. *)
+(** The cue sheet of IMAGE.DAT: the source cue with every index moved to its
+    absolute position in the one image file. *)
 let image_cue (cue : Cue.t) (layout : layout) =
-  let flags (f : Cue.flags) =
-    List.filter_map
-      (fun (set, name) -> if set then Some name else None)
-      [
-        (f.pre, "PRE"); (f.dcp, "DCP"); (f.four_channel, "4CH"); (f.scms, "SCMS");
-      ]
-  in
-  let track ((t : Cue.track), indexes) =
-    [ Printf.sprintf "  TRACK %02d AUDIO\n" t.number ]
-    @ text_lines "    " t.text
-    @ Option.to_list (Option.map (Printf.sprintf "    ISRC %s\n") t.isrc)
-    @ (match flags t.flags with
-      | [] -> []
-      | names -> [ Printf.sprintf "    FLAGS %s\n" (String.concat " " names) ])
-    @ List.map
-        (fun (i, f) ->
-          Printf.sprintf "    INDEX %02d %s\n" i
-            (Cd.format_msf ~separator:":" f))
-        indexes
-  in
-  String.concat ""
-    (Option.to_list (Option.map (Printf.sprintf "CATALOG %s\n") cue.catalog)
-    @ text_lines "" cue.text
-    @ [ "FILE \"IMAGE.DAT\" BINARY\n" ]
-    @ List.concat_map track layout.tracks)
+  Cue.to_string
+    {
+      cue with
+      cdtext_file = None;
+      files = [ { path = "IMAGE.DAT"; file_type = `Binary } ];
+      tracks =
+        List.map
+          (fun ((t : Cue.track), indexes) ->
+            {
+              t with
+              indexes =
+                List.map (fun (i, time) -> (i, { Cue.file = 0; time })) indexes;
+            })
+          layout.tracks;
+    }
 
 (** Writes the fileset for [cue_path] into [dir]. *)
 let write ?(warn = fun msg -> prerr_endline ("warning: " ^ msg))
